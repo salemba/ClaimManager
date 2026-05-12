@@ -1,10 +1,12 @@
 namespace ClaimManager.Api.Endpoints.Workspace;
 
+using ClaimManager.Api.Configuration;
 using ClaimManager.Api.Endpoints.Auth;
 using ClaimManager.Application.Security;
 using ClaimManager.Domain.Claims;
 using ClaimManager.Infrastructure.Identity;
 using ClaimManager.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -28,6 +30,8 @@ public static class WorkspaceEndpoints
 
     private static async Task<Ok<WorkspaceResponse>> GetWorkspaceAsync(
         ClaimsPrincipal principal,
+        HttpContext httpContext,
+        IAntiforgery antiforgery,
         UserManager<ClaimManagerUser> userManager,
         ClaimManagerDbContext dbContext,
         CancellationToken cancellationToken)
@@ -42,6 +46,7 @@ public static class WorkspaceEndpoints
             .ToArrayAsync(cancellationToken);
 
         var databaseAvailable = await dbContext.Database.CanConnectAsync(cancellationToken);
+        AntiforgeryTokenCookie.Refresh(httpContext, antiforgery);
 
         return TypedResults.Ok(new WorkspaceResponse(
             User: new AuthEndpoints.AuthSessionResponse(user.Id.ToString(), user.Email ?? user.UserName ?? string.Empty, roles.ToArray()),

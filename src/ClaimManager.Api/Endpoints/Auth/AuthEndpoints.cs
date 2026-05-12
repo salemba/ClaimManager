@@ -1,6 +1,8 @@
 namespace ClaimManager.Api.Endpoints.Auth;
 
+using ClaimManager.Api.Configuration;
 using ClaimManager.Infrastructure.Identity;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -21,6 +23,8 @@ public static class AuthEndpoints
 
     private static async Task<Results<Ok<AuthSessionResponse>, ValidationProblem, ProblemHttpResult>> LoginAsync(
         LoginRequest request,
+        HttpContext httpContext,
+        IAntiforgery antiforgery,
         SignInManager<ClaimManagerUser> signInManager,
         UserManager<ClaimManagerUser> userManager)
     {
@@ -52,18 +56,22 @@ public static class AuthEndpoints
         }
 
         var roles = await userManager.GetRolesAsync(user);
+        AntiforgeryTokenCookie.Refresh(httpContext, antiforgery);
 
         return TypedResults.Ok(new AuthSessionResponse(user.Id.ToString(), user.Email ?? request.Email, roles.ToArray()));
     }
 
-    private static async Task<NoContent> LogoutAsync(SignInManager<ClaimManagerUser> signInManager)
+    private static async Task<NoContent> LogoutAsync(HttpContext httpContext, SignInManager<ClaimManagerUser> signInManager)
     {
         await signInManager.SignOutAsync();
+        AntiforgeryTokenCookie.Clear(httpContext);
         return TypedResults.NoContent();
     }
 
     private static async Task<Results<Ok<AuthSessionResponse>, ProblemHttpResult>> GetCurrentUserAsync(
         ClaimsPrincipal principal,
+        HttpContext httpContext,
+        IAntiforgery antiforgery,
         UserManager<ClaimManagerUser> userManager)
     {
         var user = await userManager.GetUserAsync(principal);
@@ -76,6 +84,7 @@ public static class AuthEndpoints
         }
 
         var roles = await userManager.GetRolesAsync(user);
+        AntiforgeryTokenCookie.Refresh(httpContext, antiforgery);
         return TypedResults.Ok(new AuthSessionResponse(user.Id.ToString(), user.Email ?? user.UserName ?? string.Empty, roles.ToArray()));
     }
 

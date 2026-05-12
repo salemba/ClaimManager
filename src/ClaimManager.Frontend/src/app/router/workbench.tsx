@@ -38,8 +38,8 @@ export const primaryWorkbenchRoutes: WorkbenchRouteMeta[] = [
     navLabel: 'Claims',
     eyebrow: 'Claims queue',
     title: 'Claims work queue',
-    description: 'Claim intake, assignment, and claim-file navigation will expand here in later stories.',
-    placeholderSummary: 'This scaffold reserves a predictable route for claim-focused workflow panels without pretending the workflow is already built.',
+    description: 'Create, update, and revisit claim files while keeping the working queue visible inside the shared operations shell.',
+    placeholderSummary: 'Claim intake and claim-file maintenance are now active in this workbench route.',
     icon: FolderOpenRounded,
   },
   {

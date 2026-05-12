@@ -1,7 +1,9 @@
 using ClaimManager.Api.Configuration;
 using ClaimManager.Api.Endpoints.Auth;
+using ClaimManager.Api.Endpoints.Claims;
 using ClaimManager.Api.Endpoints.Workspace;
 using ClaimManager.Application.Security;
+using ClaimManager.Infrastructure.Integrations.DocumentRepository;
 using ClaimManager.Infrastructure.Identity;
 using ClaimManager.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -14,6 +16,11 @@ builder.AddServiceDefaults();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = AntiforgeryTokenCookie.HeaderName;
+});
+builder.Services.AddSingleton<IDocumentRepository>(_ => new LocalDocumentRepository());
 
 builder.AddNpgsqlDbContext<ClaimManagerDbContext>(
     connectionName: "postgresdb",
@@ -95,9 +102,11 @@ if (app.Environment.IsDevelopment())
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 
 app.MapDefaultEndpoints();
 app.MapAuthEndpoints();
+app.MapClaimEndpoints();
 app.MapWorkspaceEndpoints();
 
 app.UseFileServer();

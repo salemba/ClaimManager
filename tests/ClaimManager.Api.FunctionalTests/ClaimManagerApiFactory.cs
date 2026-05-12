@@ -33,14 +33,18 @@ public sealed class ClaimManagerApiFactory : WebApplicationFactory<Program>, IAs
         await _database.StartAsync();
         Environment.SetEnvironmentVariable("ConnectionStrings__postgresdb", _database.GetConnectionString());
 
+        var dbContextOptions = new DbContextOptionsBuilder<ClaimManagerDbContext>()
+            .UseNpgsql(_database.GetConnectionString())
+            .UseSnakeCaseNamingConvention()
+            .Options;
+
+        await using var dbContext = new ClaimManagerDbContext(dbContextOptions);
+        await dbContext.Database.MigrateAsync();
+
         _ = CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
         });
-
-        using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ClaimManagerDbContext>();
-        await dbContext.Database.MigrateAsync();
     }
 
     public new async Task DisposeAsync()

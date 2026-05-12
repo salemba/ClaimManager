@@ -6,11 +6,13 @@ import { AuthenticatedLayout } from '../../../src/ClaimManager.Frontend/src/app/
 import { AppProviders } from '../../../src/ClaimManager.Frontend/src/app/providers/AppProviders';
 import { DashboardPage } from '../../../src/ClaimManager.Frontend/src/app/routes/DashboardPage';
 import { WorkbenchPlaceholderPage } from '../../../src/ClaimManager.Frontend/src/app/routes/WorkbenchPlaceholderPage';
+import { CreateClaimPage } from '../../../src/ClaimManager.Frontend/src/features/claims/routes/CreateClaimPage';
 import {
   defaultWorkbenchRoute,
   primaryWorkbenchRoutes,
 } from '../../../src/ClaimManager.Frontend/src/app/router/workbench';
 import { LoginForm } from '../../../src/ClaimManager.Frontend/src/features/auth/components/LoginForm';
+import { createClaim, getClaim, getClaims, updateClaim } from '../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi';
 import { ApiError } from '../../../src/ClaimManager.Frontend/src/shared/api/client';
 import type { WorkspacePayload } from '../../../src/ClaimManager.Frontend/src/features/auth/api/authApi';
 import { getWorkspace, login, logout } from '../../../src/ClaimManager.Frontend/src/features/auth/api/authApi';
@@ -21,9 +23,20 @@ vi.mock('../../../src/ClaimManager.Frontend/src/features/auth/api/authApi', () =
   logout: vi.fn(),
 }));
 
+vi.mock('../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi', () => ({
+  getClaims: vi.fn(),
+  getClaim: vi.fn(),
+  createClaim: vi.fn(),
+  updateClaim: vi.fn(),
+}));
+
 const mockedGetWorkspace = vi.mocked(getWorkspace);
 const mockedLogin = vi.mocked(login);
 const mockedLogout = vi.mocked(logout);
+const mockedGetClaims = vi.mocked(getClaims);
+const mockedGetClaim = vi.mocked(getClaim);
+const mockedCreateClaim = vi.mocked(createClaim);
+const mockedUpdateClaim = vi.mocked(updateClaim);
 
 const workspaceFixture: WorkspacePayload = {
   user: {
@@ -45,6 +58,19 @@ const workspaceFixture: WorkspacePayload = {
     },
   ],
 };
+
+const claimsQueueFixture = [
+  {
+    id: 'claim-1001',
+    claimNumber: 'CLM-1001',
+    status: 'Open',
+    claimantName: 'Jordan Avery',
+    policyNumber: 'POL-1001',
+    lossDateUtc: '2026-05-10T00:00:00Z',
+    createdAtUtc: '2026-05-10T09:30:00Z',
+    updatedAtUtc: null,
+  },
+];
 
 function renderWithProviders(router: ReturnType<typeof createMemoryRouter>) {
   return render(
@@ -85,7 +111,7 @@ function createWorkbenchRouter(initialEntries: string[]) {
             handle: {
               workbench: claimsRoute,
             },
-            element: <WorkbenchPlaceholderPage meta={claimsRoute} />,
+            element: <CreateClaimPage />,
           },
           {
             path: approvalsRoute.path,
@@ -111,6 +137,37 @@ function createWorkbenchRouter(initialEntries: string[]) {
 describe('ClaimManager workbench foundation', () => {
   beforeEach(() => {
     mockedGetWorkspace.mockResolvedValue(workspaceFixture);
+    mockedGetClaims.mockResolvedValue(claimsQueueFixture);
+    mockedGetClaim.mockResolvedValue({
+      ...claimsQueueFixture[0],
+      claimantEmail: 'jordan.avery@example.com',
+      claimantPhone: '555-0100',
+      lossType: 'Water damage',
+      lossDescription: 'Pipe burst in lower level.',
+      createdByUserId: 'adjuster-1',
+      updatedByUserId: null,
+      auditHistory: [],
+    });
+    mockedCreateClaim.mockResolvedValue({
+      ...claimsQueueFixture[0],
+      claimantEmail: 'jordan.avery@example.com',
+      claimantPhone: '555-0100',
+      lossType: 'Water damage',
+      lossDescription: 'Pipe burst in lower level.',
+      createdByUserId: 'adjuster-1',
+      updatedByUserId: null,
+      auditHistory: [],
+    });
+    mockedUpdateClaim.mockResolvedValue({
+      ...claimsQueueFixture[0],
+      claimantEmail: 'jordan.avery@example.com',
+      claimantPhone: '555-0100',
+      lossType: 'Water damage',
+      lossDescription: 'Pipe burst in lower level.',
+      createdByUserId: 'adjuster-1',
+      updatedByUserId: 'adjuster-1',
+      auditHistory: [],
+    });
     mockedLogin.mockResolvedValue({
       userId: workspaceFixture.user.userId,
       email: workspaceFixture.user.email,
@@ -151,7 +208,9 @@ describe('ClaimManager workbench foundation', () => {
     renderWithProviders(router);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Claims work queue' })).toBeInTheDocument();
-    expect(screen.getByText('Placeholder route only. Workflow implementation remains intentionally out of scope for Story 1.2.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Claims ready for handling' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create claim file' })).toBeInTheDocument();
+    expect(screen.getByText(/Jordan Avery/)).toBeInTheDocument();
 
     const primaryNavigation = screen.getAllByRole('navigation', { name: 'Primary' });
     expect(

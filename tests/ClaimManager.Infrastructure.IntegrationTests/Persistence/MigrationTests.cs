@@ -29,6 +29,9 @@ public sealed class MigrationTests : IAsyncLifetime
         Assert.Equal(1L, await CountTablesAsync(connection, "users"));
         Assert.Equal(1L, await CountTablesAsync(connection, "roles"));
         Assert.Equal(1L, await CountTablesAsync(connection, "claims"));
+        Assert.Equal(1L, await CountTablesAsync(connection, "claim_audits"));
+        Assert.Equal(1L, await CountTablesAsync(connection, "claim_notes"));
+        Assert.Equal(1L, await CountTablesAsync(connection, "claim_documents"));
     }
 
     public Task InitializeAsync() => _database.StartAsync();

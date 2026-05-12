@@ -22,6 +22,48 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ClaimManager.Domain.Audit.ClaimAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
+                    b.Property<DateTime>("PerformedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("performed_at_utc");
+
+                    b.Property<string>("PerformedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("performed_by_user_id");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("summary");
+
+                    b.HasKey("Id")
+                        .HasName("pk_claim_audits");
+
+                    b.HasIndex("ClaimId", "PerformedAtUtc")
+                        .HasDatabaseName("ix_claim_audits_claim_id_performed_at_utc");
+
+                    b.ToTable("claim_audits", (string)null);
+                });
+
             modelBuilder.Entity("ClaimManager.Domain.Claims.Claim", b =>
                 {
                     b.Property<Guid>("Id")
@@ -35,15 +77,70 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("claim_number");
 
+                    b.Property<string>("ClaimantEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("claimant_email");
+
+                    b.Property<string>("ClaimantName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("claimant_name");
+
+                    b.Property<string>("ClaimantPhone")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("claimant_phone");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTime>("LossDateUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("loss_date_utc");
+
+                    b.Property<string>("LossDescription")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("loss_description");
+
+                    b.Property<string>("LossType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("loss_type");
+
+                    b.Property<string>("PolicyNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("policy_number");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("status");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("updated_by_user_id");
 
                     b.HasKey("Id")
                         .HasName("pk_claims");
@@ -59,9 +156,114 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
                             ClaimNumber = "CLM-0001",
+                            ClaimantEmail = "jordan.avery@example.com",
+                            ClaimantName = "Jordan Avery",
+                            ClaimantPhone = "555-0100",
                             CreatedAtUtc = new DateTime(2026, 5, 11, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedByUserId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                            LossDateUtc = new DateTime(2026, 5, 8, 0, 0, 0, 0, DateTimeKind.Utc),
+                            LossDescription = "Kitchen pipe burst caused water damage across the lower level.",
+                            LossType = "Water damage",
+                            PolicyNumber = "POL-2026-0001",
                             Status = "new"
                         });
+                });
+
+            modelBuilder.Entity("ClaimManager.Domain.Claims.ClaimDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("file_name");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_size_bytes");
+
+                    b.Property<string>("FileType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("file_type");
+
+                    b.Property<string>("StorageIdentifier")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("storage_identifier");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at_utc");
+
+                    b.Property<string>("UploadedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("uploaded_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_claim_documents");
+
+                    b.HasIndex("StorageIdentifier")
+                        .IsUnique()
+                        .HasDatabaseName("ix_claim_documents_storage_identifier");
+
+                    b.HasIndex("ClaimId", "UploadedAtUtc")
+                        .HasDatabaseName("ix_claim_documents_claim_id_uploaded_at_utc");
+
+                    b.ToTable("claim_documents", (string)null);
+                });
+
+            modelBuilder.Entity("ClaimManager.Domain.Claims.ClaimNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("content");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_claim_notes");
+
+                    b.HasIndex("ClaimId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_claim_notes_claim_id_created_at_utc");
+
+                    b.ToTable("claim_notes", (string)null);
                 });
 
             modelBuilder.Entity("ClaimManager.Infrastructure.Identity.ClaimManagerRole", b =>
@@ -389,6 +591,36 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                     b.ToTable("user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("ClaimManager.Domain.Audit.ClaimAudit", b =>
+                {
+                    b.HasOne("ClaimManager.Domain.Claims.Claim", null)
+                        .WithMany()
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_claim_audits_claims_claim_id");
+                });
+
+            modelBuilder.Entity("ClaimManager.Domain.Claims.ClaimDocument", b =>
+                {
+                    b.HasOne("ClaimManager.Domain.Claims.Claim", null)
+                        .WithMany("Documents")
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_claim_documents_claims_claim_id");
+                });
+
+            modelBuilder.Entity("ClaimManager.Domain.Claims.ClaimNote", b =>
+                {
+                    b.HasOne("ClaimManager.Domain.Claims.Claim", null)
+                        .WithMany("Notes")
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_claim_notes_claims_claim_id");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("ClaimManager.Infrastructure.Identity.ClaimManagerRole", null)
@@ -444,6 +676,13 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("ClaimManager.Domain.Claims.Claim", b =>
+                {
+                    b.Navigation("Documents");
+
+                    b.Navigation("Notes");
                 });
 #pragma warning restore 612, 618
         }

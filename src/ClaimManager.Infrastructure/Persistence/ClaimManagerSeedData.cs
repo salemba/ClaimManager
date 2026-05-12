@@ -56,7 +56,15 @@ internal static class ClaimManagerSeedData
             Id = InitialClaimId,
             ClaimNumber = "CLM-0001",
             Status = "new",
-            CreatedAtUtc = SeededAtUtc
+            ClaimantName = "Jordan Avery",
+            ClaimantEmail = "jordan.avery@example.com",
+            ClaimantPhone = "555-0100",
+            PolicyNumber = "POL-2026-0001",
+            LossDateUtc = SeededAtUtc.AddDays(-3),
+            LossType = "Water damage",
+            LossDescription = "Kitchen pipe burst caused water damage across the lower level.",
+            CreatedAtUtc = SeededAtUtc,
+            CreatedByUserId = AdjusterUserId.ToString()
         }
     ];
 

@@ -13,7 +13,9 @@ public sealed class ClaimManagerDbContextDesignTimeFactory : IDesignTimeDbContex
                 "Set the ConnectionStrings__postgresdb environment variable before invoking EF Core design-time commands.");
 
         var optionsBuilder = new DbContextOptionsBuilder<ClaimManagerDbContext>();
-        optionsBuilder.UseNpgsql(connectionString);
+        optionsBuilder
+            .UseNpgsql(connectionString)
+            .UseSnakeCaseNamingConvention();
 
         return new ClaimManagerDbContext(optionsBuilder.Options);
     }

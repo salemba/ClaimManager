@@ -40,12 +40,12 @@ export function DashboardPage() {
               <Typography variant="h2">Initial claims workspace</Typography>
             </div>
             <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
-              The dashboard now uses the shared theme foundation and workbench primitives, while claim-specific workflow behavior remains intentionally placeholder-level.
+              The dashboard now uses the shared theme foundation and workbench primitives while active claim intake and maintenance routes feed the operational queue.
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <StatusBadge tone="info" label={`${workspace.claims.length} seeded claims available`} icon={<FolderOpenRounded fontSize="small" />} />
               <StatusBadge tone="success" label="Theme provider active" icon={<CheckCircleOutlineRounded fontSize="small" />} />
-              <StatusBadge tone="warning" label="Workflow features intentionally pending" icon={<WarningAmberRounded fontSize="small" />} />
+              <StatusBadge tone="warning" label="Approvals and governance routes still pending" icon={<WarningAmberRounded fontSize="small" />} />
             </Stack>
           </Stack>
         </Paper>
@@ -93,7 +93,7 @@ export function DashboardPage() {
                 Next surfaces in this shell
               </Typography>
               <Typography color="text.secondary">
-                Claims, approvals, and governance now have stable routes and navigation slots so later stories can add workflow UI without revisiting shell structure.
+                Claims now support live intake and maintenance while approvals and governance remain stable destinations for later stories.
               </Typography>
             </Paper>
 
