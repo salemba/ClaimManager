@@ -1,0 +1,37 @@
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.page-surface > * {
+  min-width: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 1400;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  background: #10233a;
+  color: #ffffff;
+  transform: translateY(-200%);
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}

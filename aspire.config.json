@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "ClaimManager.AppHost/ClaimManager.AppHost.csproj"
+  }
+}
