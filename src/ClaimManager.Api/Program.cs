@@ -4,6 +4,7 @@ using ClaimManager.Api.Endpoints.Claims;
 using ClaimManager.Api.Endpoints.Workspace;
 using ClaimManager.Application.Security;
 using ClaimManager.Infrastructure.Integrations.DocumentRepository;
+using ClaimManager.Infrastructure.Integrations.Messaging;
 using ClaimManager.Infrastructure.Integrations.PaymentSystem;
 using ClaimManager.Infrastructure.Integrations.PolicySystem;
 using ClaimManager.Infrastructure.Identity;
@@ -18,10 +19,14 @@ builder.AddServiceDefaults();
 
 builder.Services.Configure<PolicySystemOptions>(builder.Configuration.GetSection("PolicySystem"));
 builder.Services.Configure<PaymentSystemOptions>(builder.Configuration.GetSection("PaymentSystem"));
+builder.Services.Configure<DocumentRepositoryOptions>(builder.Configuration.GetSection("DocumentRepository"));
+builder.Services.Configure<MessagingOptions>(builder.Configuration.GetSection("Messaging"));
 
 builder.Services.AddHealthChecks()
     .AddCheck<PolicySystemHealthCheck>("policy-system", tags: ["integration"])
-    .AddCheck<PaymentSystemHealthCheck>("payment-system", tags: ["integration"]);
+    .AddCheck<PaymentSystemHealthCheck>("payment-system", tags: ["integration"])
+    .AddCheck<DocumentRepositoryHealthCheck>("document-repository", tags: ["integration"])
+    .AddCheck<MessagingHealthCheck>("messaging", tags: ["integration"]);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
@@ -34,6 +39,8 @@ builder.Services.AddSingleton<IPolicySystemClient>(sp =>
     new LocalPolicySystemClient(sp.GetRequiredService<ILoggerFactory>().CreateLogger<LocalPolicySystemClient>()));
 builder.Services.AddSingleton<IPaymentSystemClient>(sp =>
     new LocalPaymentSystemClient(sp.GetRequiredService<ILoggerFactory>().CreateLogger<LocalPaymentSystemClient>()));
+builder.Services.AddSingleton<IMessagingClient>(sp =>
+    new LocalMessagingClient(sp.GetRequiredService<ILoggerFactory>().CreateLogger<LocalMessagingClient>()));
 
 builder.AddNpgsqlDbContext<ClaimManagerDbContext>(
     connectionName: "postgresdb",

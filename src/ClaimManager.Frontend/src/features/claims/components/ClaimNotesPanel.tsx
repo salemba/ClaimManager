@@ -29,6 +29,7 @@ export function ClaimNotesPanel({ notes, busy = false, errorMessage, onSubmit }:
       await onSubmit(normalizedContent);
       setContent('');
     } catch {
+      return;
     }
   };
 

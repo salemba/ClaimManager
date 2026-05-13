@@ -210,7 +210,7 @@ export function ClaimsQueuePage() {
                   <Checkbox
                     checked={searchParams.get('hasBlocker') === 'true'}
                     onChange={(e) => setHasBlocker(e.target.checked)}
-                    inputProps={{ 'aria-label': 'Show only claims with an active blocker' }}
+                    slotProps={{ input: { 'aria-label': 'Has blocker' } }}
                   />
                 }
                 label="Has blocker"
@@ -335,7 +335,7 @@ export function ClaimsQueuePage() {
   );
 }
 
-function getStatusTone(status: string): 'neutral' | 'info' | 'warning' | 'success' | 'error' {
+function getStatusTone(status: string): 'neutral' | 'info' | 'warning' | 'success' | 'critical' {
   switch (status) {
     case 'new': return 'neutral';
     case 'open': return 'info';

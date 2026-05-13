@@ -145,7 +145,7 @@ export function WorkflowActionsPanel({
                         minRows={3}
                         fullWidth
                         helperText="Explain why this claim requires payment approval (10–500 characters)."
-                        inputProps={{ 'aria-label': 'Approval rationale' }}
+                        slotProps={{ htmlInput: { 'aria-label': 'Approval rationale' } }}
                       />
                       <Stack direction="row" spacing={1}>
                         <Button

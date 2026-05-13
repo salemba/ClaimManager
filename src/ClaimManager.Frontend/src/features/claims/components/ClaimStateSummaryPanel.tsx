@@ -43,7 +43,7 @@ export function ClaimStateSummaryPanel({ claim }: ClaimStateSummaryPanelProps) {
           <Typography variant="h2">Claim status</Typography>
         </div>
 
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
           <Stack spacing={0.5}>
             <Typography variant="caption" color="text.secondary">
               Status
@@ -68,7 +68,7 @@ export function ClaimStateSummaryPanel({ claim }: ClaimStateSummaryPanelProps) {
             <Typography variant="caption" color="text.secondary">
               Owner
             </Typography>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <PersonRounded fontSize="small" color="action" />
               <Typography variant="body2">{ownedByUserId ?? 'Unassigned'}</Typography>
             </Stack>

@@ -10,7 +10,7 @@ import { ClaimStateSummaryPanel } from '../components/ClaimStateSummaryPanel';
 import { WorkflowActionsPanel } from '../components/WorkflowActionsPanel';
 import { WorkflowTimeline } from '../components/WorkflowTimeline';
 import { claimToFormValues } from '../types/Claim';
-import type { Claim, ClaimDocument, ClaimFormValues, ClaimNote } from '../types/Claim';
+import type { ClaimDocument, ClaimFormValues, ClaimNote } from '../types/Claim';
 import { ApiError } from '../../../shared/api/client';
 import { getProblemFieldErrors } from '../../../shared/api/problemDetails';
 import { useClaimFormStore } from '../state/claimFormStore';
@@ -159,8 +159,12 @@ export function EditClaimPage() {
 
         <WorkflowActionsPanel
           claim={claimQuery.data}
-          onAdvance={() => advanceClaimMutation.mutateAsync()}
-          onRouteForApproval={(rationale) => routeForApprovalMutation.mutateAsync(rationale)}
+          onAdvance={async () => {
+            await advanceClaimMutation.mutateAsync();
+          }}
+          onRouteForApproval={async (rationale) => {
+            await routeForApprovalMutation.mutateAsync(rationale);
+          }}
           advancing={advanceClaimMutation.isPending}
           routing={routeForApprovalMutation.isPending}
           advanceError={advanceError}
@@ -221,9 +225,3 @@ async function invalidateClaimQueries(queryClient: ReturnType<typeof useQueryCli
   ]);
 }
 
-async function invalidateClaimShellQueries(queryClient: ReturnType<typeof useQueryClient>) {
-  await Promise.all([
-    queryClient.invalidateQueries({ queryKey: ['claims'] }),
-    queryClient.invalidateQueries({ queryKey: ['workspace'] }),
-  ]);
-}
