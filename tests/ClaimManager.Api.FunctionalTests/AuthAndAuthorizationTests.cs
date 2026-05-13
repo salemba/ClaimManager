@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace ClaimManager.Api.FunctionalTests;
 
-public sealed class AuthAndAuthorizationTests(ClaimManagerApiFactory factory) : IClassFixture<ClaimManagerApiFactory>
+[Collection("Functional")]
+public sealed class AuthAndAuthorizationTests(ClaimManagerApiFactory factory)
 {
     [Fact]
     public async Task Health_endpoint_returns_success()

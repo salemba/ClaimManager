@@ -4,6 +4,8 @@ using ClaimManager.Api.Endpoints.Claims;
 using ClaimManager.Api.Endpoints.Workspace;
 using ClaimManager.Application.Security;
 using ClaimManager.Infrastructure.Integrations.DocumentRepository;
+using ClaimManager.Infrastructure.Integrations.PaymentSystem;
+using ClaimManager.Infrastructure.Integrations.PolicySystem;
 using ClaimManager.Infrastructure.Identity;
 using ClaimManager.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -14,6 +16,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+builder.Services.Configure<PolicySystemOptions>(builder.Configuration.GetSection("PolicySystem"));
+builder.Services.Configure<PaymentSystemOptions>(builder.Configuration.GetSection("PaymentSystem"));
+
+builder.Services.AddHealthChecks()
+    .AddCheck<PolicySystemHealthCheck>("policy-system", tags: ["integration"])
+    .AddCheck<PaymentSystemHealthCheck>("payment-system", tags: ["integration"]);
+
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddAntiforgery(options =>
@@ -21,6 +30,10 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = AntiforgeryTokenCookie.HeaderName;
 });
 builder.Services.AddSingleton<IDocumentRepository>(_ => new LocalDocumentRepository());
+builder.Services.AddSingleton<IPolicySystemClient>(sp =>
+    new LocalPolicySystemClient(sp.GetRequiredService<ILoggerFactory>().CreateLogger<LocalPolicySystemClient>()));
+builder.Services.AddSingleton<IPaymentSystemClient>(sp =>
+    new LocalPaymentSystemClient(sp.GetRequiredService<ILoggerFactory>().CreateLogger<LocalPaymentSystemClient>()));
 
 builder.AddNpgsqlDbContext<ClaimManagerDbContext>(
     connectionName: "postgresdb",

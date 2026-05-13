@@ -10,7 +10,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace ClaimManager.Api.FunctionalTests;
 
-public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory) : IClassFixture<ClaimManagerApiFactory>
+[Collection("Functional")]
+public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
 {
     [Fact]
     public async Task Authenticated_adjuster_can_create_claim_and_see_it_in_queue()

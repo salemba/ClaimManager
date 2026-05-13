@@ -15,6 +15,7 @@ public sealed class ClaimManagerApiFactory : WebApplicationFactory<Program>, IAs
         .WithUsername("postgres")
         .WithPassword("postgres")
         .Build();
+    private readonly SemaphoreSlim _resetGate = new(1, 1);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -33,18 +34,41 @@ public sealed class ClaimManagerApiFactory : WebApplicationFactory<Program>, IAs
         await _database.StartAsync();
         Environment.SetEnvironmentVariable("ConnectionStrings__postgresdb", _database.GetConnectionString());
 
+        await ResetDatabaseAsync();
+
+        _ = base.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+    }
+
+    public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
+    {
+        _resetGate.Wait();
+
+        try
+        {
+            ResetDatabaseAsync().GetAwaiter().GetResult();
+            return base.CreateClient(options);
+        }
+        finally
+        {
+            _resetGate.Release();
+        }
+    }
+
+    private async Task ResetDatabaseAsync()
+    {
+        Environment.SetEnvironmentVariable("ConnectionStrings__postgresdb", _database.GetConnectionString());
+
         var dbContextOptions = new DbContextOptionsBuilder<ClaimManagerDbContext>()
             .UseNpgsql(_database.GetConnectionString())
             .UseSnakeCaseNamingConvention()
             .Options;
 
         await using var dbContext = new ClaimManagerDbContext(dbContextOptions);
+        await dbContext.Database.EnsureDeletedAsync();
         await dbContext.Database.MigrateAsync();
-
-        _ = CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false
-        });
     }
 
     public new async Task DisposeAsync()
