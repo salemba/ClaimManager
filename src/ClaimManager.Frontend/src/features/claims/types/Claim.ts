@@ -1,3 +1,20 @@
+export interface ClaimsPage<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
+export interface ClaimsQueryParams {
+  search?: string;
+  status?: string;
+  blockerType?: string;
+  hasBlocker?: boolean;
+  ownedByUserId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface ClaimAuditEntry {
   action: string;
   summary: string;

@@ -1,5 +1,5 @@
 import { apiFetch } from '../../../shared/api/client';
-import type { Claim, ClaimDocument, ClaimFormValues, ClaimNote, ClaimSummary } from '../types/Claim';
+import type { Claim, ClaimDocument, ClaimFormValues, ClaimNote, ClaimSummary, ClaimsPage, ClaimsQueryParams } from '../types/Claim';
 
 function toRequest(values: ClaimFormValues) {
   return {
@@ -13,8 +13,17 @@ function toRequest(values: ClaimFormValues) {
   };
 }
 
-export async function getClaims() {
-  return apiFetch<ClaimSummary[]>('/api/claims');
+export async function getClaims(params?: ClaimsQueryParams) {
+  const qs = new URLSearchParams();
+  if (params?.search)                qs.set('search',        params.search);
+  if (params?.status)                qs.set('status',         params.status);
+  if (params?.blockerType)           qs.set('blockerType',    params.blockerType);
+  if (params?.hasBlocker != null)    qs.set('hasBlocker',     String(params.hasBlocker));
+  if (params?.ownedByUserId)         qs.set('ownedByUserId',  params.ownedByUserId);
+  if (params?.page != null)          qs.set('page',           String(params.page));
+  if (params?.pageSize != null)      qs.set('pageSize',       String(params.pageSize));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<ClaimsPage<ClaimSummary>>(`/api/claims${suffix}`);
 }
 
 export async function getClaim(id: string) {

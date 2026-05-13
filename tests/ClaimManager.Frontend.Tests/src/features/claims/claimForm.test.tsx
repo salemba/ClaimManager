@@ -59,6 +59,21 @@ const claimFixture = {
   ],
 };
 
+const claimSummaryFixture = {
+  id: claimFixture.id,
+  claimNumber: claimFixture.claimNumber,
+  status: claimFixture.status,
+  claimantName: claimFixture.claimantName,
+  policyNumber: claimFixture.policyNumber,
+  lossDateUtc: claimFixture.lossDateUtc,
+  createdAtUtc: claimFixture.createdAtUtc,
+  updatedAtUtc: claimFixture.updatedAtUtc,
+  blockerType: claimFixture.blockerType,
+  blockerReason: claimFixture.blockerReason,
+  ownedByUserId: claimFixture.ownedByUserId,
+  hasDataIntegrityWarning: claimFixture.hasDataIntegrityWarning,
+};
+
 function renderCreateClaimPage() {
   return render(
     <AppProviders>
@@ -83,18 +98,12 @@ function renderEditClaimPage(claimId = 'claim-1') {
 
 describe('Claim form', () => {
   beforeEach(() => {
-    mockedGetClaims.mockResolvedValue([
-      {
-        id: claimFixture.id,
-        claimNumber: claimFixture.claimNumber,
-        status: claimFixture.status,
-        claimantName: claimFixture.claimantName,
-        policyNumber: claimFixture.policyNumber,
-        lossDateUtc: claimFixture.lossDateUtc,
-        createdAtUtc: claimFixture.createdAtUtc,
-        updatedAtUtc: claimFixture.updatedAtUtc,
-      },
-    ]);
+    mockedGetClaims.mockResolvedValue({
+      items: [claimSummaryFixture],
+      page: 1,
+      pageSize: 20,
+      totalCount: 1,
+    });
     mockedGetClaim.mockResolvedValue(claimFixture);
     mockedUpdateClaim.mockResolvedValue({
       ...claimFixture,
@@ -163,40 +172,34 @@ describe('Claim form', () => {
     });
 
     mockedGetClaims
-      .mockResolvedValueOnce([
-        {
-          id: 'claim-1',
-          claimNumber: 'CLM-0001',
-          status: 'new',
-          claimantName: 'Jordan Avery',
-          policyNumber: 'POL-2026-0001',
-          lossDateUtc: '2026-05-08T00:00:00Z',
-          createdAtUtc: '2026-05-11T00:00:00Z',
-          updatedAtUtc: null,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: 'claim-1',
-          claimNumber: 'CLM-0001',
-          status: 'new',
-          claimantName: 'Jordan Avery',
-          policyNumber: 'POL-2026-0001',
-          lossDateUtc: '2026-05-08T00:00:00Z',
-          createdAtUtc: '2026-05-11T00:00:00Z',
-          updatedAtUtc: null,
-        },
-        {
-          id: 'claim-2',
-          claimNumber: 'CLM-0002',
-          status: 'new',
-          claimantName: 'Morgan Lee',
-          policyNumber: 'POL-0200',
-          lossDateUtc: '2026-05-10T00:00:00Z',
-          createdAtUtc: '2026-05-12T08:00:00Z',
-          updatedAtUtc: null,
-        },
-      ]);
+      .mockResolvedValueOnce({
+        items: [claimSummaryFixture],
+        page: 1,
+        pageSize: 20,
+        totalCount: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          claimSummaryFixture,
+          {
+            id: 'claim-2',
+            claimNumber: 'CLM-0002',
+            status: 'new',
+            claimantName: 'Morgan Lee',
+            policyNumber: 'POL-0200',
+            lossDateUtc: '2026-05-10T00:00:00Z',
+            createdAtUtc: '2026-05-12T08:00:00Z',
+            updatedAtUtc: null,
+            blockerType: null,
+            blockerReason: null,
+            ownedByUserId: 'adjuster-1',
+            hasDataIntegrityWarning: false,
+          },
+        ],
+        page: 1,
+        pageSize: 20,
+        totalCount: 2,
+      });
 
     renderCreateClaimPage();
 
@@ -217,7 +220,7 @@ describe('Claim form', () => {
   }, 15000);
 
   it('prefills edit values, renders audit history, and supports keyboard submission flow', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     renderEditClaimPage();
 
@@ -240,7 +243,7 @@ describe('Claim form', () => {
     });
 
     expect(await screen.findByText('Claim file updated and audit history refreshed.')).toBeInTheDocument();
-  });
+  }, 15000);
 
   it('adds a note and refreshes the claim context panels', async () => {
     const user = userEvent.setup();

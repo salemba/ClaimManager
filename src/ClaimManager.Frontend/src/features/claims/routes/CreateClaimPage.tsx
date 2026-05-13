@@ -23,7 +23,7 @@ export function CreateClaimPage() {
 
   const claimsQuery = useQuery({
     queryKey: ['claims'],
-    queryFn: getClaims,
+    queryFn: () => getClaims(),
   });
 
   const createClaimMutation = useMutation({
@@ -74,7 +74,7 @@ export function CreateClaimPage() {
                   </Typography>
                   <Typography variant="h2">Claims ready for handling</Typography>
                 </div>
-                <StatusBadge tone="info" label={`${claimsQuery.data?.length ?? 0} claims in queue`} icon={<AddCircleOutlineRounded fontSize="small" />} />
+                <StatusBadge tone="info" label={`${claimsQuery.data?.totalCount ?? 0} claims in queue`} icon={<AddCircleOutlineRounded fontSize="small" />} />
               </Stack>
 
               <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
@@ -87,30 +87,38 @@ export function CreateClaimPage() {
                   <Typography color="text.secondary">Loading current claims queue...</Typography>
                 </Stack>
               ) : (
-                <List disablePadding sx={{ display: 'grid', gap: 1.5 }}>
-                  {(claimsQuery.data ?? []).map((claim) => (
-                    <ListItem key={claim.id} disablePadding>
-                      <ListItemButton
-                        component={RouterLink}
-                        to={`/claims/${claim.id}/edit`}
-                        sx={{
-                          p: 2,
-                          borderRadius: 3,
-                          border: (theme) => `1px solid ${theme.palette.divider}`,
-                          alignItems: 'flex-start',
-                        }}
-                      >
-                        <ListItemText
-                          primary={`${claim.claimNumber} · ${claim.claimantName}`}
-                          secondary={`Policy ${claim.policyNumber} · Loss ${new Date(claim.lossDateUtc).toLocaleDateString()} · ${claim.status}`}
-                        />
-                        <Button component="span" variant="text" startIcon={<EditRounded />}>
-                          Edit
-                        </Button>
-                      </ListItemButton>
-                    </ListItem>
-                  ))}
-                </List>
+                <Stack spacing={1.5}>
+                  <List disablePadding sx={{ display: 'grid', gap: 1.5 }}>
+                    {(claimsQuery.data?.items ?? []).map((claim) => (
+                      <ListItem key={claim.id} disablePadding>
+                        <ListItemButton
+                          component={RouterLink}
+                          to={`/claims/${claim.id}/edit`}
+                          sx={{
+                            p: 2,
+                            borderRadius: 3,
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          <ListItemText
+                            primary={`${claim.claimNumber} · ${claim.claimantName}`}
+                            secondary={`Policy ${claim.policyNumber} · Loss ${new Date(claim.lossDateUtc).toLocaleDateString()} · ${claim.status}`}
+                          />
+                          <Button component="span" variant="text" startIcon={<EditRounded />}>
+                            Edit
+                          </Button>
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+
+                  {(claimsQuery.data?.totalCount ?? 0) > (claimsQuery.data?.items.length ?? 0) ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {`Showing the first ${claimsQuery.data?.items.length ?? 0} of ${claimsQuery.data?.totalCount ?? 0} claims here. Open the claims queue for the full paginated list.`}
+                    </Typography>
+                  ) : null}
+                </Stack>
               )}
             </Stack>
           </Paper>

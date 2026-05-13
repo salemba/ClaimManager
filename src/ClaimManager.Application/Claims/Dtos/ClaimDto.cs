@@ -35,6 +35,12 @@ public sealed record ClaimDocumentDto(
             document.UploadedByUserId);
 }
 
+public sealed record ClaimSummaryPagedResponseDto(
+    IReadOnlyList<ClaimSummaryDto> Items,
+    int Page,
+    int PageSize,
+    int TotalCount);
+
 public sealed record ClaimSummaryDto(
     Guid Id,
     string ClaimNumber,

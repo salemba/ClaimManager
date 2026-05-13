@@ -6,6 +6,7 @@ import { AuthenticatedLayout } from '../../../src/ClaimManager.Frontend/src/app/
 import { AppProviders } from '../../../src/ClaimManager.Frontend/src/app/providers/AppProviders';
 import { DashboardPage } from '../../../src/ClaimManager.Frontend/src/app/routes/DashboardPage';
 import { WorkbenchPlaceholderPage } from '../../../src/ClaimManager.Frontend/src/app/routes/WorkbenchPlaceholderPage';
+import { ClaimsQueuePage } from '../../../src/ClaimManager.Frontend/src/features/claims/routes/ClaimsQueuePage';
 import { CreateClaimPage } from '../../../src/ClaimManager.Frontend/src/features/claims/routes/CreateClaimPage';
 import {
   defaultWorkbenchRoute,
@@ -63,14 +64,33 @@ const claimsQueueFixture = [
   {
     id: 'claim-1001',
     claimNumber: 'CLM-1001',
-    status: 'Open',
+    status: 'open',
     claimantName: 'Jordan Avery',
     policyNumber: 'POL-1001',
     lossDateUtc: '2026-05-10T00:00:00Z',
     createdAtUtc: '2026-05-10T09:30:00Z',
     updatedAtUtc: null,
+    blockerType: null,
+    blockerReason: null,
+    ownedByUserId: 'adjuster-1',
+    hasDataIntegrityWarning: false,
   },
 ];
+
+const claimDetailFixture = {
+  ...claimsQueueFixture[0],
+  claimantEmail: 'jordan.avery@example.com',
+  claimantPhone: '555-0100',
+  lossType: 'Water damage',
+  lossDescription: 'Pipe burst in lower level.',
+  createdByUserId: 'adjuster-1',
+  updatedByUserId: null,
+  nextExpectedAction: 'Initial review',
+  dataIntegrityWarningMessage: null,
+  notes: [],
+  documents: [],
+  auditHistory: [],
+};
 
 function renderWithProviders(router: ReturnType<typeof createMemoryRouter>) {
   return render(
@@ -111,6 +131,13 @@ function createWorkbenchRouter(initialEntries: string[]) {
             handle: {
               workbench: claimsRoute,
             },
+            element: <ClaimsQueuePage />,
+          },
+          {
+            path: `${claimsRoute.path}/new`,
+            handle: {
+              workbench: claimsRoute,
+            },
             element: <CreateClaimPage />,
           },
           {
@@ -137,36 +164,12 @@ function createWorkbenchRouter(initialEntries: string[]) {
 describe('ClaimManager workbench foundation', () => {
   beforeEach(() => {
     mockedGetWorkspace.mockResolvedValue(workspaceFixture);
-    mockedGetClaims.mockResolvedValue(claimsQueueFixture);
-    mockedGetClaim.mockResolvedValue({
-      ...claimsQueueFixture[0],
-      claimantEmail: 'jordan.avery@example.com',
-      claimantPhone: '555-0100',
-      lossType: 'Water damage',
-      lossDescription: 'Pipe burst in lower level.',
-      createdByUserId: 'adjuster-1',
-      updatedByUserId: null,
-      auditHistory: [],
-    });
-    mockedCreateClaim.mockResolvedValue({
-      ...claimsQueueFixture[0],
-      claimantEmail: 'jordan.avery@example.com',
-      claimantPhone: '555-0100',
-      lossType: 'Water damage',
-      lossDescription: 'Pipe burst in lower level.',
-      createdByUserId: 'adjuster-1',
-      updatedByUserId: null,
-      auditHistory: [],
-    });
+    mockedGetClaims.mockResolvedValue({ items: claimsQueueFixture, page: 1, pageSize: 20, totalCount: claimsQueueFixture.length });
+    mockedGetClaim.mockResolvedValue(claimDetailFixture);
+    mockedCreateClaim.mockResolvedValue(claimDetailFixture);
     mockedUpdateClaim.mockResolvedValue({
-      ...claimsQueueFixture[0],
-      claimantEmail: 'jordan.avery@example.com',
-      claimantPhone: '555-0100',
-      lossType: 'Water damage',
-      lossDescription: 'Pipe burst in lower level.',
-      createdByUserId: 'adjuster-1',
+      ...claimDetailFixture,
       updatedByUserId: 'adjuster-1',
-      auditHistory: [],
     });
     mockedLogin.mockResolvedValue({
       userId: workspaceFixture.user.userId,
@@ -208,9 +211,7 @@ describe('ClaimManager workbench foundation', () => {
     renderWithProviders(router);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Claims work queue' })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { level: 2, name: 'Claims ready for handling' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create claim file' })).toBeInTheDocument();
-    expect(screen.getByText(/Jordan Avery/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'New Claim' })).toBeInTheDocument();
 
     const primaryNavigation = screen.getAllByRole('navigation', { name: 'Primary' });
     expect(
@@ -218,6 +219,15 @@ describe('ClaimManager workbench foundation', () => {
         within(navigation).getByRole('link', { name: /Claims/i }).getAttribute('aria-current') === 'page',
       ),
     ).toBe(true);
+  });
+
+  it('renders the create-claim route on /claims/new', async () => {
+    const router = createWorkbenchRouter(['/claims/new']);
+
+    renderWithProviders(router);
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Claims ready for handling' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create claim file' })).toBeInTheDocument();
   });
 
   it('keeps sign-in failures accessible while preserving seeded account guidance', async () => {

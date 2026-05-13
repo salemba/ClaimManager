@@ -18,6 +18,15 @@ using System.Text.Json;
 using ClaimsPrincipal = System.Security.Claims.ClaimsPrincipal;
 using ClaimEntity = ClaimManager.Domain.Claims.Claim;
 
+public sealed record GetClaimsQueryParams(
+    string? Search = null,
+    string? Status = null,
+    string? BlockerType = null,
+    bool? HasBlocker = null,
+    string? OwnedByUserId = null,
+    int Page = 1,
+    int PageSize = 20);
+
 public static class ClaimsController
 {
     public static IEndpointRouteBuilder MapClaimEndpoints(this IEndpointRouteBuilder endpoints)
@@ -38,17 +47,58 @@ public static class ClaimsController
         return endpoints;
     }
 
-    private static async Task<Ok<ClaimSummaryDto[]>> GetClaimsAsync(
+    private static async Task<Ok<ClaimSummaryPagedResponseDto>> GetClaimsAsync(
+        [AsParameters] GetClaimsQueryParams query,
         ClaimManagerDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var claims = await dbContext.Claims
-            .OrderByDescending(claim => claim.UpdatedAtUtc ?? claim.CreatedAtUtc)
-            .ThenBy(claim => claim.ClaimNumber)
-            .Select(claim => ClaimSummaryDto.FromClaim(claim))
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+
+        IQueryable<ClaimEntity> q = dbContext.Claims;
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var pattern = $"%{query.Search.Trim()}%";
+            q = q.Where(c =>
+                EF.Functions.ILike(c.ClaimNumber, pattern) ||
+                EF.Functions.ILike(c.ClaimantName, pattern) ||
+                EF.Functions.ILike(c.PolicyNumber, pattern));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Status))
+        {
+            q = q.Where(c => c.Status == query.Status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.BlockerType))
+        {
+            q = q.Where(c => c.BlockerType == query.BlockerType);
+        }
+
+        if (query.HasBlocker.HasValue)
+        {
+            q = query.HasBlocker.Value
+                ? q.Where(c => c.BlockerType != null)
+                : q.Where(c => c.BlockerType == null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.OwnedByUserId))
+        {
+            q = q.Where(c => c.OwnedByUserId == query.OwnedByUserId);
+        }
+
+        var totalCount = await q.CountAsync(cancellationToken);
+
+        var items = await q
+            .OrderByDescending(c => c.UpdatedAtUtc ?? c.CreatedAtUtc)
+            .ThenBy(c => c.ClaimNumber)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => ClaimSummaryDto.FromClaim(c))
             .ToArrayAsync(cancellationToken);
 
-        return TypedResults.Ok(claims);
+        return TypedResults.Ok(new ClaimSummaryPagedResponseDto(items, page, pageSize, totalCount));
     }
 
     private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> GetClaimDetailsAsync(

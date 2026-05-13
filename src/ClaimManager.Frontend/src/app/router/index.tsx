@@ -3,6 +3,7 @@ import { AuthenticatedLayout } from '../layouts/AuthenticatedLayout';
 import { LoginForm } from '../../features/auth/components/LoginForm';
 import { DashboardPage } from '../routes/DashboardPage';
 import { WorkbenchPlaceholderPage } from '../routes/WorkbenchPlaceholderPage';
+import { ClaimsQueuePage } from '../../features/claims/routes/ClaimsQueuePage';
 import { CreateClaimPage } from '../../features/claims/routes/CreateClaimPage';
 import { EditClaimPage } from '../../features/claims/routes/EditClaimPage';
 import { defaultWorkbenchRoute, primaryWorkbenchRoutes } from './workbench';
@@ -38,6 +39,13 @@ export const router = createBrowserRouter([
         ? [
             {
               path: claimsWorkbenchRoute.path,
+              handle: {
+                workbench: claimsWorkbenchRoute,
+              },
+              element: <ClaimsQueuePage />,
+            },
+            {
+              path: `${claimsWorkbenchRoute.path}/new`,
               handle: {
                 workbench: claimsWorkbenchRoute,
               },

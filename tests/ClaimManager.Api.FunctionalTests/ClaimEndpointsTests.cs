@@ -33,12 +33,12 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory) : IClass
 
         var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
         var queueResponse = await client.GetAsync("/api/claims");
-        var queue = await queueResponse.Content.ReadFromJsonAsync<ClaimSummaryDto[]>();
+        var queue = await queueResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         Assert.NotNull(createdClaim);
         Assert.NotEqual(Guid.Empty, createdClaim!.Id);
-        Assert.Contains(queue ?? [], claim => claim.Id == createdClaim.Id && claim.ClaimantName == "Morgan Lee");
+        Assert.Contains(queue?.Items ?? [], claim => claim.Id == createdClaim.Id && claim.ClaimantName == "Morgan Lee");
     }
 
     [Fact]
@@ -459,6 +459,186 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory) : IClass
         var conflictResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new { });
 
         Assert.Equal(HttpStatusCode.Conflict, conflictResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Unfiltered_claims_list_returns_paginated_envelope_with_correct_structure()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "PaginationStructure User",
+            "pagination.structure@example.com",
+            "555-0201",
+            "POL-PGSTRUCT-001",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Theft",
+            "Vehicle stolen from parking lot."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var listResponse = await client.GetAsync("/api/claims");
+        var pagedResult = await listResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(pagedResult);
+        Assert.True(pagedResult!.TotalCount >= 1);
+        Assert.True(pagedResult.Items.Count >= 1);
+        Assert.Equal(1, pagedResult.Page);
+        Assert.Equal(20, pagedResult.PageSize);
+        Assert.Contains(pagedResult.Items, c => c.Id == createdClaim!.Id);
+    }
+
+    [Fact]
+    public async Task Status_filter_returns_only_claims_with_matching_status()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "StatusFilter User",
+            "statusfilter@example.com",
+            "555-0202",
+            "POL-STATUSFLT-001",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Flood",
+            "Water damage from basement flooding."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+
+        var otherClaimResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "NewStatus User",
+            "newstatus@example.com",
+            "555-0207",
+            "POL-STATUSFLT-002",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Flood",
+            "Freshly created claim left in the new state."));
+        var otherClaim = await otherClaimResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var listResponse = await client.GetAsync("/api/claims?status=open");
+        var pagedResult = await listResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(pagedResult);
+        Assert.Contains(pagedResult!.Items, c => c.Id == createdClaim!.Id);
+        Assert.DoesNotContain(pagedResult.Items, c => c.Id == otherClaim!.Id);
+        Assert.All(pagedResult.Items, c => Assert.Equal("open", c.Status));
+    }
+
+    [Fact]
+    public async Task Search_by_claim_number_prefix_returns_matching_claim()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "SearchNumber User",
+            "searchnumber@example.com",
+            "555-0203",
+            "POL-SEARCHNUM-001",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Fire",
+            "Kitchen fire caused minor smoke damage."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var claimNumberPrefix = createdClaim!.ClaimNumber[..Math.Min(7, createdClaim.ClaimNumber.Length)];
+        var listResponse = await client.GetAsync($"/api/claims?search={claimNumberPrefix}");
+        var pagedResult = await listResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(pagedResult);
+        Assert.Contains(pagedResult!.Items, c => c.Id == createdClaim.Id);
+    }
+
+    [Fact]
+    public async Task HasBlocker_true_filter_returns_only_claims_with_active_blocker()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "BlockerFilter User",
+            "blockerfilter@example.com",
+            "555-0204",
+            "POL-BLKFLT-001",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Liability",
+            "Slip-and-fall at commercial property."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+        const string rationale = "Claim amount exceeds standard approval threshold.";
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new { rationale });
+
+        var listResponse = await client.GetAsync("/api/claims?hasBlocker=true");
+        var pagedResult = await listResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(pagedResult);
+        Assert.Contains(pagedResult!.Items, c => c.Id == createdClaim.Id);
+        Assert.All(pagedResult.Items, c => Assert.NotNull(c.BlockerType));
+    }
+
+    [Fact]
+    public async Task Pagination_second_page_returns_the_second_ordered_claim()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var create1 = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "PaginationSlice User",
+            "pagslice1@example.com",
+            "555-0205",
+            "POL-PGSLICE-001",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Vandalism",
+            "Windshield smashed in driveway."));
+        var claim1 = await create1.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var create2 = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "PaginationSlice User",
+            "pagslice2@example.com",
+            "555-0206",
+            "POL-PGSLICE-002",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Vandalism",
+            "Side mirrors broken overnight."));
+        var claim2 = await create2.Content.ReadFromJsonAsync<ClaimDto>();
+
+        await client.PostAsJsonAsync($"/api/claims/{claim1!.Id}/advance", new { });
+
+        var listResponse = await client.GetAsync("/api/claims?search=PaginationSlice+User&pageSize=1&page=2");
+        var pagedResult = await listResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(pagedResult);
+        Assert.Equal(2, pagedResult!.TotalCount);
+        Assert.Single(pagedResult.Items);
+        Assert.Equal(2, pagedResult.Page);
+        Assert.Equal(1, pagedResult.PageSize);
+        Assert.Equal(claim2!.Id, pagedResult.Items[0].Id);
     }
 
     private static async Task LoginAsync(HttpClient client)
