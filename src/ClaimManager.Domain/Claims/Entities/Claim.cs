@@ -2,6 +2,16 @@ namespace ClaimManager.Domain.Claims;
 
 public sealed class Claim
 {
+    private static readonly Dictionary<string, (string NextState, string? NextExpectedAction)> _advanceTransitions = new()
+    {
+        ["new"] = ("open", "Investigate loss details"),
+        ["open"] = ("in-review", "Review and document findings"),
+        ["approved"] = ("closed", null),
+    };
+
+    private static readonly HashSet<string> _approvalRoutingStates = ["open", "in-review"];
+
+
     public Guid Id { get; set; }
 
     public List<ClaimNote> Notes { get; private set; } = [];
@@ -34,6 +44,18 @@ public sealed class Claim
 
     public string? UpdatedByUserId { get; set; }
 
+    public string? BlockerType { get; set; }
+
+    public string? BlockerReason { get; set; }
+
+    public string? OwnedByUserId { get; set; }
+
+    public string? NextExpectedAction { get; set; }
+
+    public bool HasDataIntegrityWarning { get; set; }
+
+    public string? DataIntegrityWarningMessage { get; set; }
+
     public static Claim Create(
         string claimNumber,
         string claimantName,
@@ -59,7 +81,9 @@ public sealed class Claim
             LossType = NormalizeRequired(lossType, nameof(lossType)),
             LossDescription = NormalizeRequired(lossDescription, nameof(lossDescription)),
             CreatedByUserId = NormalizeRequired(createdByUserId, nameof(createdByUserId)),
-            CreatedAtUtc = createdAtUtc
+            CreatedAtUtc = createdAtUtc,
+            OwnedByUserId = NormalizeRequired(createdByUserId, nameof(createdByUserId)),
+            NextExpectedAction = "Initial review"
         };
     }
 
@@ -123,6 +147,50 @@ public sealed class Claim
 
         Notes.Add(note);
         return note;
+    }
+
+    public string AdvanceWorkflow(string performedByUserId, DateTime updatedAtUtc)
+    {
+        var normalizedUserId = NormalizeRequired(performedByUserId, nameof(performedByUserId));
+        var normalizedUpdatedAtUtc = EnsurePastOrPresentUtc(updatedAtUtc, nameof(updatedAtUtc));
+
+        if (!_advanceTransitions.TryGetValue(Status, out var transition))
+        {
+            throw new InvalidOperationException($"Cannot advance workflow from state '{Status}'.");
+        }
+
+        var previousStatus = Status;
+        Status = transition.NextState;
+        OwnedByUserId = normalizedUserId;
+        NextExpectedAction = transition.NextExpectedAction;
+        BlockerType = null;
+        BlockerReason = null;
+        UpdatedByUserId = normalizedUserId;
+        UpdatedAtUtc = normalizedUpdatedAtUtc;
+
+        return transition.NextExpectedAction is not null
+            ? $"Claim progressed from {previousStatus} to {Status}. Next action: {NextExpectedAction}."
+            : $"Claim progressed from {previousStatus} to {Status}.";
+    }
+
+    public void RouteForPaymentApproval(string rationale, string performedByUserId, DateTime updatedAtUtc)
+    {
+        var normalizedUserId = NormalizeRequired(performedByUserId, nameof(performedByUserId));
+        var normalizedRationale = NormalizeRequired(rationale, nameof(rationale));
+        var normalizedUpdatedAtUtc = EnsurePastOrPresentUtc(updatedAtUtc, nameof(updatedAtUtc));
+
+        if (!_approvalRoutingStates.Contains(Status))
+        {
+            throw new InvalidOperationException($"Cannot route for payment approval from state '{Status}'.");
+        }
+
+        Status = "pending";
+        BlockerType = "awaiting-payment-approval";
+        BlockerReason = normalizedRationale;
+        NextExpectedAction = "Awaiting payment approval decision";
+        OwnedByUserId = normalizedUserId;
+        UpdatedByUserId = normalizedUserId;
+        UpdatedAtUtc = normalizedUpdatedAtUtc;
     }
 
     public ClaimDocument AddDocument(

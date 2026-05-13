@@ -227,6 +227,39 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task New_claim_has_workflow_status_fields_initialized_on_get()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var detailsResponse = await client.GetAsync($"/api/claims/{createdClaim!.Id}");
+        var claimDetails = await detailsResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        Assert.NotNull(claimDetails);
+        Assert.Equal(createdClaim!.CreatedByUserId, claimDetails!.OwnedByUserId);
+        Assert.Equal("Initial review", claimDetails.NextExpectedAction);
+        Assert.False(claimDetails.HasDataIntegrityWarning);
+        Assert.Null(claimDetails.BlockerType);
+        Assert.Null(claimDetails.BlockerReason);
+        Assert.Null(claimDetails.DataIntegrityWarningMessage);
+    }
+
+    [Fact]
     public async Task Document_upload_without_csrf_header_is_rejected()
     {
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -288,6 +321,144 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory) : IClass
         Assert.Equal(HttpStatusCode.BadRequest, uploadResponse.StatusCode);
         Assert.NotNull(problem);
         Assert.Contains("file", problem!.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Adjuster_can_advance_claim_from_new_to_open_and_workflow_fields_are_updated()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var addNoteResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/notes", new AddClaimNoteCommand("Claim reviewed before workflow advancement."));
+        Assert.Equal(HttpStatusCode.Created, addNoteResponse.StatusCode);
+
+        var advanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new { });
+        var advancedClaim = await advanceResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, advanceResponse.StatusCode);
+        Assert.NotNull(advancedClaim);
+        Assert.Equal("open", advancedClaim!.Status);
+        Assert.NotNull(advancedClaim.OwnedByUserId);
+        Assert.NotNull(advancedClaim.UpdatedAtUtc);
+        Assert.NotNull(advancedClaim.UpdatedByUserId);
+        Assert.Null(advancedClaim.BlockerType);
+        Assert.Null(advancedClaim.BlockerReason);
+        Assert.NotNull(advancedClaim.NextExpectedAction);
+        Assert.Single(advancedClaim.Notes);
+        Assert.Contains(advancedClaim.AuditHistory, entry => entry.Action == "workflow-advanced");
+    }
+
+    [Fact]
+    public async Task Adjuster_can_route_claim_for_payment_approval_and_blocker_state_is_set()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        // Advance to open first
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+
+        const string rationale = "Payment exceeds standard threshold, requires supervisor review.";
+        var routeResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new { rationale });
+        var routedClaim = await routeResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, routeResponse.StatusCode);
+        Assert.NotNull(routedClaim);
+        Assert.Equal("pending", routedClaim!.Status);
+        Assert.Equal("awaiting-payment-approval", routedClaim.BlockerType);
+        Assert.Equal(rationale, routedClaim.BlockerReason);
+        Assert.Equal("Awaiting payment approval decision", routedClaim.NextExpectedAction);
+        Assert.NotNull(routedClaim.UpdatedAtUtc);
+        Assert.NotNull(routedClaim.UpdatedByUserId);
+        Assert.Contains(routedClaim.AuditHistory, entry => entry.Action == "routed-for-approval");
+    }
+
+    [Fact]
+    public async Task Route_for_approval_trims_rationale_before_storing_and_auditing()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+
+        const string paddedRationale = "        exceeds threshold and needs review        ";
+        var routeResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new { rationale = paddedRationale });
+        var routedClaim = await routeResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, routeResponse.StatusCode);
+        Assert.Equal("exceeds threshold and needs review", routedClaim!.BlockerReason);
+        Assert.Contains(routedClaim.AuditHistory, entry => entry.Summary.Contains("exceeds threshold and needs review", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Advance_from_invalid_state_returns_conflict()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        // Advance new → open → in-review
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new { });
+
+        // Attempting to advance from in-review has no valid next state
+        var conflictResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new { });
+
+        Assert.Equal(HttpStatusCode.Conflict, conflictResponse.StatusCode);
     }
 
     private static async Task LoginAsync(HttpClient client)

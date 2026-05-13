@@ -31,6 +31,10 @@ export interface ClaimSummary {
   lossDateUtc: string;
   createdAtUtc: string;
   updatedAtUtc: string | null;
+  blockerType: string | null;
+  blockerReason: string | null;
+  ownedByUserId: string | null;
+  hasDataIntegrityWarning: boolean;
 }
 
 export interface Claim extends ClaimSummary {
@@ -40,6 +44,8 @@ export interface Claim extends ClaimSummary {
   lossDescription: string;
   createdByUserId: string;
   updatedByUserId: string | null;
+  nextExpectedAction: string | null;
+  dataIntegrityWarningMessage: string | null;
   auditHistory: ClaimAuditEntry[];
   notes: ClaimNote[];
   documents: ClaimDocument[];

@@ -1,19 +1,20 @@
-import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, CircularProgress, List, ListItem, Paper, Stack, Typography } from '@mui/material';
+import { Alert, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { addClaimNote, getClaim, updateClaim, uploadClaimDocument } from '../api/claimsApi';
+import { addClaimNote, advanceClaimWorkflow, getClaim, routeClaimForApproval, updateClaim, uploadClaimDocument } from '../api/claimsApi';
 import { ClaimForm } from '../components/ClaimForm';
 import { ClaimDocumentsPanel } from '../components/ClaimDocumentsPanel';
 import { ClaimNotesPanel } from '../components/ClaimNotesPanel';
+import { ClaimStateSummaryPanel } from '../components/ClaimStateSummaryPanel';
+import { WorkflowActionsPanel } from '../components/WorkflowActionsPanel';
+import { WorkflowTimeline } from '../components/WorkflowTimeline';
 import { claimToFormValues } from '../types/Claim';
 import type { Claim, ClaimDocument, ClaimFormValues, ClaimNote } from '../types/Claim';
 import { ApiError } from '../../../shared/api/client';
 import { getProblemFieldErrors } from '../../../shared/api/problemDetails';
 import { useClaimFormStore } from '../state/claimFormStore';
 import { PageSurface } from '../../../shared/ui/PageSurface';
-import { StatusBadge } from '../../../shared/ui/StatusBadge';
 
 export function EditClaimPage() {
   const { claimId } = useParams<{ claimId: string }>();
@@ -93,6 +94,39 @@ export function EditClaimPage() {
     },
   });
 
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+
+  const advanceClaimMutation = useMutation({
+    mutationFn: () => advanceClaimWorkflow(claimId!),
+    onSuccess: async () => {
+      setAdvanceError(null);
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setAdvanceError(error.message);
+        return;
+      }
+      setAdvanceError('Unable to advance the workflow right now.');
+    },
+  });
+
+  const routeForApprovalMutation = useMutation({
+    mutationFn: (rationale: string) => routeClaimForApproval(claimId!, rationale),
+    onSuccess: async () => {
+      setRouteError(null);
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setRouteError(error.message);
+        return;
+      }
+      setRouteError('Unable to route the claim for approval right now.');
+    },
+  });
+
   if (!claimId) {
     return <Navigate to="/claims" replace />;
   }
@@ -120,6 +154,18 @@ export function EditClaimPage() {
     <PageSurface>
       <Stack spacing={3}>
         {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
+
+        <ClaimStateSummaryPanel claim={claimQuery.data} />
+
+        <WorkflowActionsPanel
+          claim={claimQuery.data}
+          onAdvance={() => advanceClaimMutation.mutateAsync()}
+          onRouteForApproval={(rationale) => routeForApprovalMutation.mutateAsync(rationale)}
+          advancing={advanceClaimMutation.isPending}
+          routing={routeForApprovalMutation.isPending}
+          advanceError={advanceError}
+          routeError={routeError}
+        />
 
         <Stack
           sx={{
@@ -159,43 +205,7 @@ export function EditClaimPage() {
               }}
             />
 
-            <Paper component="section" sx={{ p: { xs: 3, md: 4 } }} aria-label="Claim audit history">
-              <Stack spacing={2.5}>
-                <div>
-                  <Typography variant="overline" color="text.secondary">
-                    Auditability
-                  </Typography>
-                  <Typography variant="h2">Material change history</Typography>
-                </div>
-                <StatusBadge tone="info" label={`${claimQuery.data.auditHistory.length} audit entries`} icon={<HistoryRounded fontSize="small" />} />
-                <Typography color="text.secondary">
-                  Every create, note, document, and update action records who changed the claim, when it changed, and what was materially updated.
-                </Typography>
-                <List disablePadding sx={{ display: 'grid', gap: 1.5 }}>
-                  {claimQuery.data.auditHistory.map((entry) => (
-                    <ListItem
-                      key={`${entry.action}-${entry.performedAtUtc}`}
-                      disablePadding
-                      sx={{
-                        display: 'block',
-                        p: 2,
-                        borderRadius: 3,
-                        bgcolor: 'background.default',
-                        border: (theme) => `1px solid ${theme.palette.divider}`,
-                      }}
-                    >
-                      <Stack spacing={0.75}>
-                        <Typography variant="subtitle1">{entry.action}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {new Date(entry.performedAtUtc).toLocaleString()} · {entry.performedByUserId}
-                        </Typography>
-                        <Typography>{entry.summary}</Typography>
-                      </Stack>
-                    </ListItem>
-                  ))}
-                </List>
-              </Stack>
-            </Paper>
+            <WorkflowTimeline auditHistory={claimQuery.data.auditHistory} />
           </Stack>
         </Stack>
       </Stack>

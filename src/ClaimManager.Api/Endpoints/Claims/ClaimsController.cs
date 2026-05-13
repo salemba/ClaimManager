@@ -32,6 +32,8 @@ public static class ClaimsController
         group.MapPut("/{id:guid}", UpdateClaimAsync);
         group.MapPost("/{id:guid}/notes", AddClaimNoteAsync);
         group.MapPost("/{id:guid}/documents", UploadClaimDocumentAsync);
+        group.MapPost("/{id:guid}/advance", AdvanceClaimWorkflowAsync);
+        group.MapPost("/{id:guid}/route-for-approval", RouteClaimForApprovalAsync);
 
         return endpoints;
     }
@@ -325,6 +327,121 @@ public static class ClaimsController
 
             throw;
         }
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> AdvanceClaimWorkflowAsync(
+        Guid id,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claim = await dbContext.Claims.SingleOrDefaultAsync(existingClaim => existingClaim.Id == id, cancellationToken);
+        if (claim is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        var advancedAtUtc = DateTime.UtcNow;
+
+        string auditSummary;
+        try
+        {
+            auditSummary = claim.AdvanceWorkflow(user.Id.ToString(), advancedAtUtc);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status409Conflict, title: "Invalid workflow transition", detail: ex.Message);
+        }
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            claim.Id,
+            "workflow-advanced",
+            auditSummary,
+            user.Id.ToString(),
+            advancedAtUtc).ToEntity());
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ValidationProblem, ProblemHttpResult>> RouteClaimForApprovalAsync(
+        Guid id,
+        RouteClaimForApprovalCommand command,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        command = command with { Id = id };
+
+        var validator = new RouteClaimForApprovalCommandValidator();
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            return TypedResults.ValidationProblem(ToValidationDictionary(validationResult));
+        }
+
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claim = await dbContext.Claims.SingleOrDefaultAsync(existingClaim => existingClaim.Id == id, cancellationToken);
+        if (claim is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        var routedAtUtc = DateTime.UtcNow;
+
+        try
+        {
+            claim.RouteForPaymentApproval(command.Rationale, user.Id.ToString(), routedAtUtc);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status409Conflict, title: "Invalid workflow transition", detail: ex.Message);
+        }
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            claim.Id,
+            "routed-for-approval",
+            $"Claim routed for payment approval. Rationale: {claim.BlockerReason}",
+            user.Id.ToString(),
+            routedAtUtc).ToEntity());
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
+    }
+
+    private static async Task<ClaimDto> BuildClaimDtoAsync(
+        ClaimManagerDbContext dbContext,
+        ClaimEntity claim,
+        CancellationToken cancellationToken)
+    {
+        var auditHistory = await GetAuditHistoryAsync(dbContext, claim.Id, cancellationToken);
+        var notes = await dbContext.ClaimNotes
+            .Where(note => note.ClaimId == claim.Id)
+            .OrderByDescending(note => note.CreatedAtUtc)
+            .Select(note => ClaimNoteDto.FromNote(note))
+            .ToArrayAsync(cancellationToken);
+        var documents = await dbContext.ClaimDocuments
+            .Where(document => document.ClaimId == claim.Id)
+            .OrderByDescending(document => document.UploadedAtUtc)
+            .Select(document => ClaimDocumentDto.FromDocument(document))
+            .ToArrayAsync(cancellationToken);
+
+        return ClaimDto.FromClaim(claim, auditHistory, notes, documents);
     }
 
     private static async Task<IReadOnlyList<ClaimAuditDto>> GetAuditHistoryAsync(

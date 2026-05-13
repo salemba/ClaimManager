@@ -43,10 +43,14 @@ public sealed record ClaimSummaryDto(
     string PolicyNumber,
     DateTime LossDateUtc,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc)
+    DateTime? UpdatedAtUtc,
+    string? BlockerType,
+    string? BlockerReason,
+    string? OwnedByUserId,
+    bool HasDataIntegrityWarning)
 {
     public static ClaimSummaryDto FromClaim(Claim claim) =>
-        new(claim.Id, claim.ClaimNumber, claim.Status, claim.ClaimantName, claim.PolicyNumber, claim.LossDateUtc, claim.CreatedAtUtc, claim.UpdatedAtUtc);
+        new(claim.Id, claim.ClaimNumber, claim.Status, claim.ClaimantName, claim.PolicyNumber, claim.LossDateUtc, claim.CreatedAtUtc, claim.UpdatedAtUtc, claim.BlockerType, claim.BlockerReason, claim.OwnedByUserId, claim.HasDataIntegrityWarning);
 }
 
 public sealed record ClaimDto(
@@ -64,6 +68,12 @@ public sealed record ClaimDto(
     DateTime? UpdatedAtUtc,
     string CreatedByUserId,
     string? UpdatedByUserId,
+    string? BlockerType,
+    string? BlockerReason,
+    string? OwnedByUserId,
+    string? NextExpectedAction,
+    bool HasDataIntegrityWarning,
+    string? DataIntegrityWarningMessage,
     IReadOnlyList<ClaimAuditDto> AuditHistory,
     IReadOnlyList<ClaimNoteDto> Notes,
     IReadOnlyList<ClaimDocumentDto> Documents)
@@ -88,6 +98,12 @@ public sealed record ClaimDto(
             claim.UpdatedAtUtc,
             claim.CreatedByUserId,
             claim.UpdatedByUserId,
+            claim.BlockerType,
+            claim.BlockerReason,
+            claim.OwnedByUserId,
+            claim.NextExpectedAction,
+            claim.HasDataIntegrityWarning,
+            claim.DataIntegrityWarningMessage,
             auditHistory ?? [],
             notes ?? [],
             documents ?? []);

@@ -83,6 +83,25 @@ public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext
             entity.Property(claim => claim.UpdatedByUserId)
                 .HasColumnName("updated_by_user_id")
                 .HasMaxLength(64);
+            entity.Property(claim => claim.BlockerType)
+                .HasColumnName("blocker_type")
+                .HasMaxLength(64);
+            entity.Property(claim => claim.BlockerReason)
+                .HasColumnName("blocker_reason")
+                .HasMaxLength(500);
+            entity.Property(claim => claim.OwnedByUserId)
+                .HasColumnName("owned_by_user_id")
+                .HasMaxLength(64);
+            entity.Property(claim => claim.NextExpectedAction)
+                .HasColumnName("next_expected_action")
+                .HasMaxLength(256);
+            entity.Property(claim => claim.HasDataIntegrityWarning)
+                .HasColumnName("has_data_integrity_warning")
+                .HasDefaultValue(false)
+                .IsRequired();
+            entity.Property(claim => claim.DataIntegrityWarningMessage)
+                .HasColumnName("data_integrity_warning_message")
+                .HasMaxLength(500);
 
             entity.HasIndex(claim => claim.ClaimNumber)
                 .IsUnique()

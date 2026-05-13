@@ -89,6 +89,29 @@ public sealed class ClaimTests
     }
 
     [Fact]
+    public void Create_initializes_workflow_status_defaults()
+    {
+        var claim = Claim.Create(
+            "CLM-0103",
+            "Jordan Avery",
+            "jordan.avery@example.com",
+            "555-0100",
+            "POL-0103",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Water damage",
+            "Pipe burst in lower level.",
+            "adjuster-1",
+            new DateTime(2026, 5, 11, 8, 30, 0, DateTimeKind.Utc));
+
+        Assert.Equal("adjuster-1", claim.OwnedByUserId);
+        Assert.Equal("Initial review", claim.NextExpectedAction);
+        Assert.False(claim.HasDataIntegrityWarning);
+        Assert.Null(claim.BlockerType);
+        Assert.Null(claim.BlockerReason);
+        Assert.Null(claim.DataIntegrityWarningMessage);
+    }
+
+    [Fact]
     public void Claim_can_add_document_metadata_with_safe_storage_reference()
     {
         var claim = Claim.Create(

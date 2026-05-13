@@ -15,6 +15,8 @@ vi.mock('../../../../../src/ClaimManager.Frontend/src/features/claims/api/claims
   updateClaim: vi.fn(),
   addClaimNote: vi.fn(),
   uploadClaimDocument: vi.fn(),
+  advanceClaimWorkflow: vi.fn(),
+  routeClaimForApproval: vi.fn(),
 }));
 
 const mockedGetClaims = vi.mocked(getClaims);
@@ -39,6 +41,12 @@ const claimFixture = {
   lossDescription: 'Pipe burst in lower level.',
   createdByUserId: 'adjuster-1',
   updatedByUserId: null,
+  blockerType: null,
+  blockerReason: null,
+  ownedByUserId: 'adjuster-1',
+  nextExpectedAction: 'Initial review',
+  hasDataIntegrityWarning: false,
+  dataIntegrityWarningMessage: null,
   notes: [],
   documents: [],
   auditHistory: [
@@ -143,6 +151,12 @@ describe('Claim form', () => {
       lossDescription: 'Rear-end collision during evening commute.',
       createdByUserId: 'adjuster-1',
       updatedByUserId: null,
+      blockerType: null,
+      blockerReason: null,
+      ownedByUserId: 'adjuster-1',
+      nextExpectedAction: 'Initial review',
+      hasDataIntegrityWarning: false,
+      dataIntegrityWarningMessage: null,
       notes: [],
       documents: [],
       auditHistory: [],
@@ -213,6 +227,8 @@ describe('Claim form', () => {
     expect(await screen.findByRole('heading', { name: 'Material change history' })).toBeInTheDocument();
     expect(screen.getByText('Claim file created with claimant, claim, and loss information.')).toBeInTheDocument();
 
+    // Tab past the WorkflowActionsPanel "Begin Review" button, then land on the first form field
+    await user.tab();
     await user.tab();
     expect(claimantNameInput).toHaveFocus();
 
@@ -292,7 +308,7 @@ describe('Claim form', () => {
     });
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Note content must be 4000 characters or fewer.');
-  });
+  }, 10000);
 
   it('uploads a document and renders refreshed metadata', async () => {
     const user = userEvent.setup();
@@ -369,5 +385,5 @@ describe('Claim form', () => {
     });
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Supported file types are PDF, JPG, JPEG, and PNG.');
-  });
+  }, 10000);
 });

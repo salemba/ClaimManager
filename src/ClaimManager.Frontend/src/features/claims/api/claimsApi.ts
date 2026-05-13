@@ -51,3 +51,17 @@ export async function uploadClaimDocument(id: string, file: File) {
     body: formData,
   });
 }
+
+export async function advanceClaimWorkflow(id: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/advance`, {
+    method: 'POST',
+    body: '{}',
+  });
+}
+
+export async function routeClaimForApproval(id: string, rationale: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/route-for-approval`, {
+    method: 'POST',
+    body: JSON.stringify({ rationale }),
+  });
+}
