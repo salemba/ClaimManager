@@ -2,6 +2,7 @@ namespace ClaimManager.Application.Claims.Dtos;
 
 using ClaimManager.Domain.Audit;
 using ClaimManager.Domain.Claims;
+using ClaimManager.Domain.ClaimantCommunication;
 
 public sealed record ClaimAuditDto(string Action, string Summary, DateTime PerformedAtUtc, string PerformedByUserId)
 {
@@ -15,6 +16,36 @@ public sealed record ClaimNoteDto(Guid Id, string Content, DateTime CreatedAtUtc
         new(note.Id, note.Content, note.CreatedAtUtc, note.CreatedByUserId);
 }
 
+public sealed record ClaimCommunicationDto(
+    Guid Id,
+    string CommunicationType,
+    string Channel,
+    string Recipient,
+    string Subject,
+    string Status,
+    int AttemptCount,
+    DateTime? LastAttemptAtUtc,
+    string? DeliveryId,
+    string? FailureReason,
+    DateTime CreatedAtUtc,
+    string CreatedByUserId)
+{
+    public static ClaimCommunicationDto FromCommunication(ClaimCommunication comm) =>
+        new(
+            comm.Id,
+            comm.CommunicationType,
+            comm.Channel,
+            comm.Recipient,
+            comm.Subject,
+            comm.Status,
+            comm.AttemptCount,
+            comm.LastAttemptAtUtc,
+            comm.DeliveryId,
+            comm.FailureReason,
+            comm.CreatedAtUtc,
+            comm.CreatedByUserId);
+}
+
 public sealed record ClaimDocumentDto(
     Guid Id,
     string FileName,
@@ -22,7 +53,8 @@ public sealed record ClaimDocumentDto(
     string? ContentType,
     long FileSizeBytes,
     DateTime UploadedAtUtc,
-    string UploadedByUserId)
+    string UploadedByUserId,
+    string Source)
 {
     public static ClaimDocumentDto FromDocument(ClaimDocument document) =>
         new(
@@ -32,7 +64,8 @@ public sealed record ClaimDocumentDto(
             document.ContentType,
             document.FileSizeBytes,
             document.UploadedAtUtc,
-            document.UploadedByUserId);
+            document.UploadedByUserId,
+            document.Source);
 }
 
 public sealed record ClaimSummaryPagedResponseDto(
@@ -53,10 +86,13 @@ public sealed record ClaimSummaryDto(
     string? BlockerType,
     string? BlockerReason,
     string? OwnedByUserId,
-    bool HasDataIntegrityWarning)
+    bool HasDataIntegrityWarning,
+    DateTime? PolicySyncedAtUtc,
+    DateTime? PaymentSyncedAtUtc,
+    DateTime? DocumentSyncedAtUtc)
 {
     public static ClaimSummaryDto FromClaim(Claim claim) =>
-        new(claim.Id, claim.ClaimNumber, claim.Status, claim.ClaimantName, claim.PolicyNumber, claim.LossDateUtc, claim.CreatedAtUtc, claim.UpdatedAtUtc, claim.BlockerType, claim.BlockerReason, claim.OwnedByUserId, claim.HasDataIntegrityWarning);
+        new(claim.Id, claim.ClaimNumber, claim.Status, claim.ClaimantName, claim.PolicyNumber, claim.LossDateUtc, claim.CreatedAtUtc, claim.UpdatedAtUtc, claim.BlockerType, claim.BlockerReason, claim.OwnedByUserId, claim.HasDataIntegrityWarning, claim.PolicySyncedAtUtc, claim.PaymentSyncedAtUtc, claim.DocumentSyncedAtUtc);
 }
 
 public sealed record ClaimDto(
@@ -80,15 +116,31 @@ public sealed record ClaimDto(
     string? NextExpectedAction,
     bool HasDataIntegrityWarning,
     string? DataIntegrityWarningMessage,
+    string? PolicyHolder,
+    string? CoverageType,
+    DateOnly? PolicyEffectiveDate,
+    DateOnly? PolicyExpirationDate,
+    DateTime? PolicySyncedAtUtc,
+    string? PaymentReference,
+    string? PaymentStatus,
+    decimal? PaymentAmount,
+    string? PaymentCurrency,
+    DateTimeOffset? PaymentSettledAt,
+    DateTime? PaymentSyncedAtUtc,
+    DateTime? DocumentSyncedAtUtc,
+    byte[] RowVersion,
+    IReadOnlyList<string> AvailableActions,
     IReadOnlyList<ClaimAuditDto> AuditHistory,
     IReadOnlyList<ClaimNoteDto> Notes,
-    IReadOnlyList<ClaimDocumentDto> Documents)
+    IReadOnlyList<ClaimDocumentDto> Documents,
+    IReadOnlyList<ClaimCommunicationDto> Communications)
 {
     public static ClaimDto FromClaim(
         Claim claim,
         IReadOnlyList<ClaimAuditDto>? auditHistory = null,
         IReadOnlyList<ClaimNoteDto>? notes = null,
-        IReadOnlyList<ClaimDocumentDto>? documents = null) =>
+        IReadOnlyList<ClaimDocumentDto>? documents = null,
+        IReadOnlyList<ClaimCommunicationDto>? communications = null) =>
         new(
             claim.Id,
             claim.ClaimNumber,
@@ -110,7 +162,22 @@ public sealed record ClaimDto(
             claim.NextExpectedAction,
             claim.HasDataIntegrityWarning,
             claim.DataIntegrityWarningMessage,
+            claim.PolicyHolder,
+            claim.CoverageType,
+            claim.PolicyEffectiveDate,
+            claim.PolicyExpirationDate,
+            claim.PolicySyncedAtUtc,
+            claim.PaymentReference,
+            claim.PaymentStatus,
+            claim.PaymentAmount,
+            claim.PaymentCurrency,
+            claim.PaymentSettledAt,
+            claim.PaymentSyncedAtUtc,
+            claim.DocumentSyncedAtUtc,
+            claim.RowVersion,
+            claim.GetAvailableActions(),
             auditHistory ?? [],
             notes ?? [],
-            documents ?? []);
+            documents ?? [],
+            communications ?? []);
 }

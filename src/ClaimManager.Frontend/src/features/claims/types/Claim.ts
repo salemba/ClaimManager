@@ -29,6 +29,21 @@ export interface ClaimNote {
   createdByUserId: string;
 }
 
+export interface ClaimCommunication {
+  id: string;
+  communicationType: string;
+  channel: string;
+  recipient: string;
+  subject: string;
+  status: string;
+  attemptCount: number;
+  lastAttemptAtUtc: string | null;
+  deliveryId: string | null;
+  failureReason: string | null;
+  createdAtUtc: string;
+  createdByUserId: string;
+}
+
 export interface ClaimDocument {
   id: string;
   fileName: string;
@@ -37,6 +52,7 @@ export interface ClaimDocument {
   fileSizeBytes: number;
   uploadedAtUtc: string;
   uploadedByUserId: string;
+  source: string;
 }
 
 export interface ClaimSummary {
@@ -52,6 +68,9 @@ export interface ClaimSummary {
   blockerReason: string | null;
   ownedByUserId: string | null;
   hasDataIntegrityWarning: boolean;
+  policySyncedAtUtc: string | null;
+  paymentSyncedAtUtc: string | null;
+  documentSyncedAtUtc: string | null;
 }
 
 export interface Claim extends ClaimSummary {
@@ -63,9 +82,21 @@ export interface Claim extends ClaimSummary {
   updatedByUserId: string | null;
   nextExpectedAction: string | null;
   dataIntegrityWarningMessage: string | null;
+  policyHolder: string | null;
+  coverageType: string | null;
+  policyEffectiveDate: string | null;
+  policyExpirationDate: string | null;
+  paymentReference: string | null;
+  paymentStatus: string | null;
+  paymentAmount: number | null;
+  paymentCurrency: string | null;
+  paymentSettledAt: string | null;
   auditHistory: ClaimAuditEntry[];
   notes: ClaimNote[];
   documents: ClaimDocument[];
+  communications: ClaimCommunication[];
+  rowVersion: string;
+  availableActions: string[];
 }
 
 export interface ClaimFormValues {

@@ -1,5 +1,5 @@
 import UploadFileRounded from '@mui/icons-material/UploadFileRounded';
-import { Button, List, ListItem, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Button, List, ListItem, Paper, Stack, Typography } from '@mui/material';
 import { useRef, useState } from 'react';
 import { ValidationError } from '../../../shared/ui/ValidationError';
 import type { ClaimDocument } from '../types/Claim';
@@ -9,9 +9,22 @@ interface ClaimDocumentsPanelProps {
   busy?: boolean;
   errorMessage?: string | null;
   onSubmit: (file: File) => Promise<ClaimDocument>;
+  onSync?: () => Promise<void>;
+  syncing?: boolean;
+  syncError?: string | null;
+  documentSyncedAtUtc?: string | null;
 }
 
-export function ClaimDocumentsPanel({ documents, busy = false, errorMessage, onSubmit }: ClaimDocumentsPanelProps) {
+export function ClaimDocumentsPanel({
+  documents,
+  busy = false,
+  errorMessage,
+  onSubmit,
+  onSync,
+  syncing = false,
+  syncError,
+  documentSyncedAtUtc,
+}: ClaimDocumentsPanelProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -37,15 +50,30 @@ export function ClaimDocumentsPanel({ documents, busy = false, errorMessage, onS
   return (
     <Paper component="section" sx={{ p: { xs: 3, md: 4 } }} aria-label="Claim documents">
       <Stack spacing={2.5}>
-        <div>
-          <Typography variant="overline" color="text.secondary">
-            Evidence handling
-          </Typography>
-          <Typography variant="h2">Documents</Typography>
-          <Typography color="text.secondary">
-            Upload supported claim evidence and keep trusted metadata available from the working claim file.
-          </Typography>
-        </div>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { sm: 'flex-start' } }}>
+          <div>
+            <Typography variant="overline" color="text.secondary">
+              Evidence handling
+            </Typography>
+            <Typography variant="h2">Documents</Typography>
+            <Typography color="text.secondary">
+              Upload supported claim evidence and keep trusted metadata available from the working claim file.
+            </Typography>
+            {documentSyncedAtUtc !== undefined ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Last repository sync: {documentSyncedAtUtc ? new Date(documentSyncedAtUtc).toLocaleString() : 'Never'}
+              </Typography>
+            ) : null}
+          </div>
+
+          {onSync ? (
+            <Button variant="outlined" disabled={syncing} onClick={() => void onSync()}>
+              Sync from Repository
+            </Button>
+          ) : null}
+        </Stack>
+
+        {syncError ? <Alert severity="error">{syncError}</Alert> : null}
 
         <ValidationError message={localError ?? errorMessage ?? undefined} />
 
@@ -100,6 +128,11 @@ export function ClaimDocumentsPanel({ documents, busy = false, errorMessage, onS
                   <Typography variant="body2" color="text.secondary">
                     Uploaded by {document.uploadedByUserId}
                   </Typography>
+                  {document.source === 'repository-sync' ? (
+                    <Typography variant="body2" color="primary.main">
+                      From external repository
+                    </Typography>
+                  ) : null}
                 </Stack>
               </ListItem>
             ))}

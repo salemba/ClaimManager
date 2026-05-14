@@ -64,12 +64,157 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                     b.ToTable("claim_audits", (string)null);
                 });
 
+            modelBuilder.Entity("ClaimManager.Domain.Audit.IntegrationHealthIncident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BoundaryName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("boundary_name");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at_utc");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_integration_health_incidents");
+
+                    b.HasIndex("BoundaryName", "StartedAtUtc")
+                        .HasDatabaseName("ix_integration_health_incidents_boundary_name_started_at_utc");
+
+                    b.ToTable("integration_health_incidents", (string)null);
+                });
+
+            modelBuilder.Entity("ClaimManager.Domain.ClaimantCommunication.ClaimCommunication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("body");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("channel");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
+                    b.Property<string>("CommunicationType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("communication_type");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DeliveryId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("delivery_id");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("failure_reason");
+
+                    b.Property<DateTime?>("LastAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at_utc");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("recipient");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("pending")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("subject");
+
+                    b.HasKey("Id")
+                        .HasName("pk_claim_communications");
+
+                    b.HasIndex("ClaimId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_claim_communications_claim_id_created_at_utc");
+
+                    b.ToTable("claim_communications", (string)null);
+                });
+
             modelBuilder.Entity("ClaimManager.Domain.Claims.Claim", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("BlockerReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("blocker_reason");
+
+                    b.Property<string>("BlockerType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("blocker_type");
 
                     b.Property<string>("ClaimNumber")
                         .IsRequired()
@@ -95,6 +240,11 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("claimant_phone");
 
+                    b.Property<string>("CoverageType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("coverage_type");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -105,36 +255,20 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("created_by_user_id");
 
-                    b.Property<string>("BlockerType")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("blocker_type");
-
-                    b.Property<string>("BlockerReason")
+                    b.Property<string>("DataIntegrityWarningMessage")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
-                        .HasColumnName("blocker_reason");
+                        .HasColumnName("data_integrity_warning_message");
 
-                    b.Property<string>("OwnedByUserId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("owned_by_user_id");
-
-                    b.Property<string>("NextExpectedAction")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("next_expected_action");
+                    b.Property<DateTime?>("DocumentSyncedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("document_synced_at_utc");
 
                     b.Property<bool>("HasDataIntegrityWarning")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("has_data_integrity_warning");
-
-                    b.Property<string>("DataIntegrityWarningMessage")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("data_integrity_warning_message");
 
                     b.Property<DateTime>("LossDateUtc")
                         .HasColumnType("timestamp with time zone")
@@ -152,11 +286,73 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("loss_type");
 
+                    b.Property<string>("NextExpectedAction")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("next_expected_action");
+
+                    b.Property<string>("OwnedByUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("owned_by_user_id");
+
+                    b.Property<decimal?>("PaymentAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("payment_amount");
+
+                    b.Property<string>("PaymentCurrency")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("payment_currency");
+
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("payment_reference");
+
+                    b.Property<DateTimeOffset?>("PaymentSettledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("payment_settled_at");
+
+                    b.Property<string>("PaymentStatus")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("payment_status");
+
+                    b.Property<DateTime?>("PaymentSyncedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("payment_synced_at_utc");
+
+                    b.Property<DateOnly?>("PolicyEffectiveDate")
+                        .HasColumnType("date")
+                        .HasColumnName("policy_effective_date");
+
+                    b.Property<DateOnly?>("PolicyExpirationDate")
+                        .HasColumnType("date")
+                        .HasColumnName("policy_expiration_date");
+
+                    b.Property<string>("PolicyHolder")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("policy_holder");
+
                     b.Property<string>("PolicyNumber")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("policy_number");
+
+                    b.Property<DateTime?>("PolicySyncedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("policy_synced_at_utc");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -197,6 +393,7 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                             LossDescription = "Kitchen pipe burst caused water damage across the lower level.",
                             LossType = "Water damage",
                             PolicyNumber = "POL-2026-0001",
+                            RowVersion = new byte[0],
                             Status = "new"
                         });
                 });
@@ -232,6 +429,14 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("file_type");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("uploaded")
+                        .HasColumnName("source");
 
                     b.Property<string>("StorageIdentifier")
                         .IsRequired()
@@ -631,6 +836,16 @@ namespace ClaimManager.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_claim_audits_claims_claim_id");
+                });
+
+            modelBuilder.Entity("ClaimManager.Domain.ClaimantCommunication.ClaimCommunication", b =>
+                {
+                    b.HasOne("ClaimManager.Domain.Claims.Claim", null)
+                        .WithMany()
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_claim_communications_claims_claim_id");
                 });
 
             modelBuilder.Entity("ClaimManager.Domain.Claims.ClaimDocument", b =>

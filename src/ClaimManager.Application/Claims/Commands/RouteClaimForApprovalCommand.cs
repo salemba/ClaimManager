@@ -1,3 +1,3 @@
 namespace ClaimManager.Application.Claims.Commands;
 
-public sealed record RouteClaimForApprovalCommand(Guid Id, string Rationale);
+public sealed record RouteClaimForApprovalCommand(Guid Id, string Rationale, byte[] RowVersion);

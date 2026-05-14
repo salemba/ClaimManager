@@ -2,6 +2,7 @@ namespace ClaimManager.Infrastructure.Persistence;
 
 using ClaimManager.Domain.Audit;
 using ClaimManager.Domain.Claims;
+using ClaimManager.Domain.ClaimantCommunication;
 using ClaimManager.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -14,9 +15,13 @@ public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext
 
     public DbSet<ClaimAudit> ClaimAudits => Set<ClaimAudit>();
 
+    public DbSet<IntegrationHealthIncident> IntegrationHealthIncidents => Set<IntegrationHealthIncident>();
+
     public DbSet<ClaimNote> ClaimNotes => Set<ClaimNote>();
 
     public DbSet<ClaimDocument> ClaimDocuments => Set<ClaimDocument>();
+
+    public DbSet<ClaimCommunication> ClaimCommunications => Set<ClaimCommunication>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -102,6 +107,42 @@ public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext
             entity.Property(claim => claim.DataIntegrityWarningMessage)
                 .HasColumnName("data_integrity_warning_message")
                 .HasMaxLength(500);
+            entity.Property(claim => claim.PolicyHolder)
+                .HasColumnName("policy_holder")
+                .HasMaxLength(160);
+            entity.Property(claim => claim.CoverageType)
+                .HasColumnName("coverage_type")
+                .HasMaxLength(64);
+            entity.Property(claim => claim.PolicyEffectiveDate)
+                .HasColumnName("policy_effective_date");
+            entity.Property(claim => claim.PolicyExpirationDate)
+                .HasColumnName("policy_expiration_date");
+            entity.Property(claim => claim.PolicySyncedAtUtc)
+                .HasColumnName("policy_synced_at_utc");
+            entity.Property(claim => claim.PaymentReference)
+                .HasColumnName("payment_reference")
+                .HasMaxLength(128);
+            entity.Property(claim => claim.PaymentStatus)
+                .HasColumnName("payment_status")
+                .HasMaxLength(64);
+            entity.Property(claim => claim.PaymentAmount)
+                .HasColumnName("payment_amount")
+                .HasPrecision(18, 4);
+            entity.Property(claim => claim.PaymentCurrency)
+                .HasColumnName("payment_currency")
+                .HasMaxLength(8);
+
+            entity.Property(claim => claim.PaymentSettledAt)
+                .HasColumnName("payment_settled_at");
+
+            entity.Property(claim => claim.PaymentSyncedAtUtc)
+                .HasColumnName("payment_synced_at_utc");
+
+            entity.Property(claim => claim.DocumentSyncedAtUtc)
+                .HasColumnName("document_synced_at_utc");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion();
 
             entity.HasIndex(claim => claim.ClaimNumber)
                 .IsUnique()
@@ -151,6 +192,34 @@ public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext
                 .HasForeignKey(audit => audit.ClaimId)
                 .HasConstraintName("fk_claim_audits_claims_claim_id")
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<IntegrationHealthIncident>(entity =>
+        {
+            entity.ToTable("integration_health_incidents");
+            entity.HasKey(incident => incident.Id).HasName("pk_integration_health_incidents");
+
+            entity.Property(incident => incident.Id).HasColumnName("id");
+            entity.Property(incident => incident.BoundaryName)
+                .HasColumnName("boundary_name")
+                .HasMaxLength(128)
+                .IsRequired();
+            entity.Property(incident => incident.Status)
+                .HasColumnName("status")
+                .HasMaxLength(32)
+                .IsRequired();
+            entity.Property(incident => incident.Description)
+                .HasColumnName("description")
+                .HasMaxLength(2000)
+                .IsRequired();
+            entity.Property(incident => incident.StartedAtUtc)
+                .HasColumnName("started_at_utc")
+                .IsRequired();
+            entity.Property(incident => incident.ResolvedAtUtc)
+                .HasColumnName("resolved_at_utc");
+
+            entity.HasIndex(incident => new { incident.BoundaryName, incident.StartedAtUtc })
+                .HasDatabaseName("ix_integration_health_incidents_boundary_name_started_at_utc");
         });
 
         builder.Entity<ClaimNote>(entity =>
@@ -208,12 +277,82 @@ public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext
                 .HasColumnName("uploaded_by_user_id")
                 .HasMaxLength(64)
                 .IsRequired();
+            entity.Property(document => document.Source)
+                .HasColumnName("source")
+                .HasMaxLength(32)
+                .HasDefaultValue("uploaded")
+                .IsRequired();
 
             entity.HasIndex(document => new { document.ClaimId, document.UploadedAtUtc })
                 .HasDatabaseName("ix_claim_documents_claim_id_uploaded_at_utc");
             entity.HasIndex(document => document.StorageIdentifier)
                 .IsUnique()
                 .HasDatabaseName("ix_claim_documents_storage_identifier");
+        });
+
+        builder.Entity<ClaimCommunication>(entity =>
+        {
+            entity.ToTable("claim_communications");
+            entity.HasKey(c => c.Id).HasName("pk_claim_communications");
+
+            entity.Property(c => c.Id).HasColumnName("id");
+            entity.Property(c => c.ClaimId).HasColumnName("claim_id").IsRequired();
+            entity.Property(c => c.CommunicationType)
+                .HasColumnName("communication_type")
+                .HasMaxLength(32)
+                .IsRequired();
+            entity.Property(c => c.Channel)
+                .HasColumnName("channel")
+                .HasMaxLength(32)
+                .IsRequired();
+            entity.Property(c => c.Recipient)
+                .HasColumnName("recipient")
+                .HasMaxLength(320)
+                .IsRequired();
+            entity.Property(c => c.Subject)
+                .HasColumnName("subject")
+                .HasMaxLength(256)
+                .IsRequired();
+            entity.Property(c => c.Body)
+                .HasColumnName("body")
+                .HasMaxLength(4000)
+                .IsRequired();
+            entity.Property(c => c.CorrelationId)
+                .HasColumnName("correlation_id")
+                .HasMaxLength(128);
+            entity.Property(c => c.Status)
+                .HasColumnName("status")
+                .HasMaxLength(16)
+                .HasDefaultValue("pending")
+                .IsRequired();
+            entity.Property(c => c.AttemptCount)
+                .HasColumnName("attempt_count")
+                .HasDefaultValue(0)
+                .IsRequired();
+            entity.Property(c => c.LastAttemptAtUtc)
+                .HasColumnName("last_attempt_at_utc");
+            entity.Property(c => c.DeliveryId)
+                .HasColumnName("delivery_id")
+                .HasMaxLength(128);
+            entity.Property(c => c.FailureReason)
+                .HasColumnName("failure_reason")
+                .HasMaxLength(500);
+            entity.Property(c => c.CreatedAtUtc)
+                .HasColumnName("created_at_utc")
+                .IsRequired();
+            entity.Property(c => c.CreatedByUserId)
+                .HasColumnName("created_by_user_id")
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.HasIndex(c => new { c.ClaimId, c.CreatedAtUtc })
+                .HasDatabaseName("ix_claim_communications_claim_id_created_at_utc");
+
+            entity.HasOne<Claim>()
+                .WithMany()
+                .HasForeignKey(c => c.ClaimId)
+                .HasConstraintName("fk_claim_communications_claims_claim_id")
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<ClaimManagerRole>().HasData(ClaimManagerSeedData.Roles);

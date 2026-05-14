@@ -1,0 +1,9 @@
+src/ClaimManager.Api/Configuration/AntiforgeryProblemDetailsHandler.cs
+src/ClaimManager.Infrastructure/Persistence/Migrations/20260513203445_AddClaimPolicySnapshot.Designer.cs
+src/ClaimManager.Infrastructure/Persistence/Migrations/20260513203445_AddClaimPolicySnapshot.cs
+src/ClaimManager.Infrastructure/Persistence/Migrations/20260513214659_AddClaimPaymentAndDocumentSync.Designer.cs
+src/ClaimManager.Infrastructure/Persistence/Migrations/20260513214659_AddClaimPaymentAndDocumentSync.cs
+tests/ClaimManager.Domain.UnitTests/Claims/ClaimDocumentSyncTests.cs
+tests/ClaimManager.Domain.UnitTests/Claims/ClaimPaymentSyncTests.cs
+tests/ClaimManager.Domain.UnitTests/Claims/ClaimPolicySyncTests.cs
+untracked_files.txt

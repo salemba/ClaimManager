@@ -8,4 +8,5 @@ public sealed record UpdateClaimCommand(
     string PolicyNumber,
     DateTime LossDateUtc,
     string LossType,
-    string LossDescription);
+    string LossDescription,
+    byte[] RowVersion);

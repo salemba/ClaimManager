@@ -6,6 +6,12 @@ public sealed class LocalDocumentRepository(string? storageRootPath = null) : ID
         ? Path.Combine(Path.GetTempPath(), "claimmanager", "documents")
         : storageRootPath;
 
+    public Task<IReadOnlyList<StoredClaimDocument>> GetDocumentListAsync(string claimNumber, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyList<StoredClaimDocument>>([]);
+    }
+
     public async Task<StoredClaimDocument> SaveAsync(DocumentRepositorySaveRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);

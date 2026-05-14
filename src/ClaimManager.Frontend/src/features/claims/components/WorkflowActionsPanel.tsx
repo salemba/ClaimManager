@@ -10,20 +10,21 @@ interface WorkflowAction {
   type: 'advance' | 'route-for-approval';
 }
 
-const STATUS_ACTIONS: Record<string, WorkflowAction[]> = {
-  new: [{ label: 'Begin Review', type: 'advance' }],
-  open: [
-    { label: 'Submit for Review', type: 'advance' },
-    { label: 'Route for Payment Approval', type: 'route-for-approval' },
-  ],
-  'in-review': [{ label: 'Route for Payment Approval', type: 'route-for-approval' }],
-  approved: [{ label: 'Close Claim', type: 'advance' }],
+const ACTION_DEFINITIONS: Record<string, Omit<WorkflowAction, 'type'>> = {
+  advance: { label: 'Advance Workflow' },
+  'route-for-approval': { label: 'Route for Payment Approval' },
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  new: 'Begin Review',
+  open: 'Submit for Review',
+  approved: 'Close Claim',
 };
 
 interface WorkflowActionsPanelProps {
   claim: Claim;
-  onAdvance: () => Promise<void>;
-  onRouteForApproval: (rationale: string) => Promise<void>;
+  onAdvance: (rowVersion: string) => Promise<void>;
+  onRouteForApproval: (rationale: string, rowVersion: string) => Promise<void>;
   advancing?: boolean;
   routing?: boolean;
   advanceError?: string | null;
@@ -44,33 +45,41 @@ export function WorkflowActionsPanel({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const isBusy = advancing || routing;
 
-  const actions = STATUS_ACTIONS[claim.status] ?? [];
+  const actions = (claim.availableActions || [])
+    .map((actionType) => {
+      const definition = ACTION_DEFINITIONS[actionType as keyof typeof ACTION_DEFINITIONS];
+      if (!definition) {
+        return null;
+      }
+      const action: WorkflowAction = {
+        type: actionType as 'advance' | 'route-for-approval',
+        label: definition.label,
+      };
+      if (action.type === 'advance' && STATUS_LABELS[claim.status]) {
+        action.label = STATUS_LABELS[claim.status];
+      }
+      return action;
+    })
+    .filter((a): a is WorkflowAction => a !== null);
 
   const handleAdvance = async () => {
-    const previousStatus = claim.status;
     setSuccessMessage(null);
     try {
-      await onAdvance();
-      const nextStatus = getNextStatus(previousStatus);
-      const nextAction = getNextExpectedAction(previousStatus);
-      const msg = nextAction
-        ? `Claim advanced from ${previousStatus} to ${nextStatus}. Next: ${nextAction}.`
-        : `Claim advanced from ${previousStatus} to ${nextStatus}.`;
-      setSuccessMessage(msg);
+      await onAdvance(claim.rowVersion);
+      setSuccessMessage(`Claim workflow advanced. The claim has been updated.`);
     } catch {
       // error handled by parent via advanceError prop
     }
   };
 
   const handleConfirmRouting = async () => {
-    const previousStatus = claim.status;
     const normalizedRationale = rationale.trim();
     setSuccessMessage(null);
     try {
-      await onRouteForApproval(normalizedRationale);
+      await onRouteForApproval(normalizedRationale, claim.rowVersion);
       setShowRationaleInput(false);
       setRationale('');
-      setSuccessMessage(`Claim advanced from ${previousStatus} to pending. Next: Awaiting payment approval decision.`);
+      setSuccessMessage(`Claim routed for approval. The claim has been updated.`);
     } catch {
       // error handled by parent via routeError prop
     }
@@ -177,22 +186,4 @@ export function WorkflowActionsPanel({
       </Stack>
     </Paper>
   );
-}
-
-function getNextStatus(currentStatus: string): string {
-  const transitions: Record<string, string> = {
-    new: 'open',
-    open: 'in-review',
-    approved: 'closed',
-  };
-  return transitions[currentStatus] ?? currentStatus;
-}
-
-function getNextExpectedAction(currentStatus: string): string | null {
-  const actions: Record<string, string | null> = {
-    new: 'Investigate loss details',
-    open: 'Review and document findings',
-    approved: null,
-  };
-  return actions[currentStatus] ?? null;
 }

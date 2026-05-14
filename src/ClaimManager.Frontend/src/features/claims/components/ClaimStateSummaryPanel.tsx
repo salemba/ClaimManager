@@ -29,6 +29,42 @@ function getStatusTone(status: string): StatusTone {
   return STATUS_TONE_MAP[status.toLowerCase()] ?? 'neutral';
 }
 
+interface SyncFreshnessContextProps {
+  policySyncedAtUtc: string | null;
+  paymentSyncedAtUtc: string | null;
+  documentSyncedAtUtc: string | null;
+}
+
+function SyncFreshnessContext({ policySyncedAtUtc, paymentSyncedAtUtc, documentSyncedAtUtc }: SyncFreshnessContextProps) {
+  const lines: string[] = [];
+
+  if (policySyncedAtUtc) {
+    lines.push(`Policy: last synced ${new Date(policySyncedAtUtc).toLocaleString()}`);
+  } else {
+    lines.push('Policy: never synced');
+  }
+
+  if (paymentSyncedAtUtc) {
+    lines.push(`Payment: last synced ${new Date(paymentSyncedAtUtc).toLocaleString()}`);
+  } else {
+    lines.push('Payment: never synced');
+  }
+
+  if (documentSyncedAtUtc) {
+    lines.push(`Documents: last synced ${new Date(documentSyncedAtUtc).toLocaleString()}`);
+  } else {
+    lines.push('Documents: never synced');
+  }
+
+  return (
+    <Typography variant="caption" component="div" color="inherit">
+      {lines.map((line) => (
+        <div key={line}>{line}</div>
+      ))}
+    </Typography>
+  );
+}
+
 export function ClaimStateSummaryPanel({ claim }: ClaimStateSummaryPanelProps) {
   const { status, blockerType, blockerReason, ownedByUserId, nextExpectedAction, hasDataIntegrityWarning, dataIntegrityWarningMessage } = claim;
   const normalizedBlockerType = blockerType?.trim() || null;
@@ -99,7 +135,14 @@ export function ClaimStateSummaryPanel({ claim }: ClaimStateSummaryPanelProps) {
 
         {hasDataIntegrityWarning && (
           <Alert severity="warning" icon={<WarningAmberRounded />}>
-            {dataIntegrityWarningMessage ?? 'This claim has a data integrity issue that may require attention.'}
+            <Stack spacing={0.5}>
+              <span>{dataIntegrityWarningMessage ?? 'This claim has a data integrity issue that may require attention.'}</span>
+              <SyncFreshnessContext
+                policySyncedAtUtc={claim.policySyncedAtUtc}
+                paymentSyncedAtUtc={claim.paymentSyncedAtUtc}
+                documentSyncedAtUtc={claim.documentSyncedAtUtc}
+              />
+            </Stack>
           </Alert>
         )}
       </Stack>

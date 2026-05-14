@@ -1,7 +1,9 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 var postgres = builder.AddPostgres("postgres")
-    .WithImageTag("18");
+    .WithImageTag("18")
+    .WithUsername("postgres")
+    .WithPassword("postgres");
 var postgresdb = postgres.AddDatabase("postgresdb");
 
 var server = builder.AddProject<Projects.ClaimManager_Api>("api")
@@ -11,7 +13,9 @@ var server = builder.AddProject<Projects.ClaimManager_Api>("api")
     .WithExternalHttpEndpoints();
 
 var webfrontend = builder.AddViteApp("webfrontend", "../src/ClaimManager.Frontend")
-    .WithReference(server);
+    .WithReference(server)
+    .WithEnvironment("SERVER_HTTPS", server.GetEndpoint("https"))
+    .WithEnvironment("SERVER_HTTP", server.GetEndpoint("http"));
 
 server.PublishWithContainerFiles(webfrontend, "wwwroot");
 

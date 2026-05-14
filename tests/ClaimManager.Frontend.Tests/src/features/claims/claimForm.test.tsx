@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../../../../../src/ClaimManager.Frontend/src/app/providers/AppProviders';
 import { CreateClaimPage } from '../../../../../src/ClaimManager.Frontend/src/features/claims/routes/CreateClaimPage';
 import { EditClaimPage } from '../../../../../src/ClaimManager.Frontend/src/features/claims/routes/EditClaimPage';
-import { addClaimNote, createClaim, getClaim, getClaims, updateClaim, uploadClaimDocument } from '../../../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi';
+import { addClaimNote, createClaim, getClaim, getClaims, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../../../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi';
 import { ApiError } from '../../../../../src/ClaimManager.Frontend/src/shared/api/client';
 
 vi.mock('../../../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi', () => ({
@@ -17,6 +17,9 @@ vi.mock('../../../../../src/ClaimManager.Frontend/src/features/claims/api/claims
   uploadClaimDocument: vi.fn(),
   advanceClaimWorkflow: vi.fn(),
   routeClaimForApproval: vi.fn(),
+  syncClaimPolicyData: vi.fn(),
+  syncClaimPaymentData: vi.fn(),
+  syncClaimDocumentData: vi.fn(),
 }));
 
 const mockedGetClaims = vi.mocked(getClaims);
@@ -25,6 +28,9 @@ const mockedCreateClaim = vi.mocked(createClaim);
 const mockedUpdateClaim = vi.mocked(updateClaim);
 const mockedAddClaimNote = vi.mocked(addClaimNote);
 const mockedUploadClaimDocument = vi.mocked(uploadClaimDocument);
+const mockedSyncClaimPolicyData = vi.mocked(syncClaimPolicyData);
+const mockedSyncClaimPaymentData = vi.mocked(syncClaimPaymentData);
+const mockedSyncClaimDocumentData = vi.mocked(syncClaimDocumentData);
 
 const claimFixture = {
   id: 'claim-1',
@@ -47,6 +53,18 @@ const claimFixture = {
   nextExpectedAction: 'Initial review',
   hasDataIntegrityWarning: false,
   dataIntegrityWarningMessage: null,
+  policyHolder: 'Jane Doe',
+  coverageType: 'Auto',
+  policyEffectiveDate: '2025-01-01',
+  policyExpirationDate: '2026-12-31',
+  policySyncedAtUtc: '2026-05-11T00:00:00Z',
+  paymentReference: null,
+  paymentStatus: null,
+  paymentAmount: null,
+  paymentCurrency: null,
+  paymentSettledAt: null,
+  paymentSyncedAtUtc: '2026-05-11T00:00:00Z',
+  documentSyncedAtUtc: null,
   notes: [],
   documents: [],
   auditHistory: [
@@ -72,6 +90,9 @@ const claimSummaryFixture = {
   blockerReason: claimFixture.blockerReason,
   ownedByUserId: claimFixture.ownedByUserId,
   hasDataIntegrityWarning: claimFixture.hasDataIntegrityWarning,
+  policySyncedAtUtc: claimFixture.policySyncedAtUtc,
+  paymentSyncedAtUtc: claimFixture.paymentSyncedAtUtc,
+  documentSyncedAtUtc: claimFixture.documentSyncedAtUtc,
 };
 
 function renderCreateClaimPage() {
@@ -122,6 +143,9 @@ describe('Claim form', () => {
         ...claimFixture.auditHistory,
       ],
     });
+    mockedSyncClaimPolicyData.mockResolvedValue(claimFixture);
+    mockedSyncClaimPaymentData.mockResolvedValue(claimFixture);
+    mockedSyncClaimDocumentData.mockResolvedValue(claimFixture);
   });
 
   afterEach(() => {
@@ -194,6 +218,9 @@ describe('Claim form', () => {
             blockerReason: null,
             ownedByUserId: 'adjuster-1',
             hasDataIntegrityWarning: false,
+            policySyncedAtUtc: null,
+            paymentSyncedAtUtc: null,
+            documentSyncedAtUtc: null,
           },
         ],
         page: 1,
@@ -228,6 +255,10 @@ describe('Claim form', () => {
 
     expect(claimantNameInput).toHaveValue('Jordan Avery');
     expect(await screen.findByRole('heading', { name: 'Material change history' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Policy System Data' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Payment System Data' })).toBeInTheDocument();
+    expect(screen.getByText(/Jane Doe/)).toBeInTheDocument();
+    expect(screen.getByText(/Payment reference:/)).toBeInTheDocument();
     expect(screen.getByText('Claim file created with claimant, claim, and loss information.')).toBeInTheDocument();
 
     // Tab past the WorkflowActionsPanel "Begin Review" button, then land on the first form field
@@ -330,6 +361,7 @@ describe('Claim form', () => {
             fileSizeBytes: 8,
             uploadedAtUtc: '2026-05-12T10:15:00Z',
             uploadedByUserId: 'adjuster-2',
+            source: 'uploaded',
           },
         ],
         auditHistory: [
@@ -350,6 +382,7 @@ describe('Claim form', () => {
       fileSizeBytes: 8,
       uploadedAtUtc: '2026-05-12T10:15:00Z',
       uploadedByUserId: 'adjuster-2',
+      source: 'uploaded',
     });
 
     renderEditClaimPage();
@@ -363,6 +396,34 @@ describe('Claim form', () => {
 
     expect(await screen.findByText('estimate.pdf')).toBeInTheDocument();
     expect(screen.getByText(/Uploaded by adjuster-2/)).toBeInTheDocument();
+  }, 10000);
+
+  it('synchronizes payment data from the edit page', async () => {
+    const user = userEvent.setup();
+
+    renderEditClaimPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Sync Payment Data' }));
+
+    await waitFor(() => {
+      expect(mockedSyncClaimPaymentData).toHaveBeenCalledWith('claim-1');
+    });
+
+    expect(await screen.findByText('Payment data synchronized and claim context refreshed.')).toBeInTheDocument();
+  }, 10000);
+
+  it('synchronizes repository documents from the edit page', async () => {
+    const user = userEvent.setup();
+
+    renderEditClaimPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Sync from Repository' }));
+
+    await waitFor(() => {
+      expect(mockedSyncClaimDocumentData).toHaveBeenCalledWith('claim-1');
+    });
+
+    expect(await screen.findByText('Document repository synchronized and claim context refreshed.')).toBeInTheDocument();
   }, 10000);
 
   it('shows upload validation errors next to the document control', async () => {

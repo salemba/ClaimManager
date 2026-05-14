@@ -9,8 +9,10 @@ using ClaimManager.Infrastructure.Integrations.PaymentSystem;
 using ClaimManager.Infrastructure.Integrations.PolicySystem;
 using ClaimManager.Infrastructure.Identity;
 using ClaimManager.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +31,7 @@ builder.Services.AddHealthChecks()
     .AddCheck<MessagingHealthCheck>("messaging", tags: ["integration"]);
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<AntiforgeryProblemDetailsHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddAntiforgery(options =>
 {
@@ -122,6 +125,29 @@ if (app.Environment.IsDevelopment())
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (AntiforgeryValidationException) when (context.Request.Path.StartsWithSegments("/api") && !context.Response.HasStarted)
+    {
+        context.Response.Clear();
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+
+        await context.RequestServices.GetRequiredService<IProblemDetailsService>().WriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = context,
+            ProblemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Invalid antiforgery token",
+                Detail = "The request could not be validated. Refresh the page and try again."
+            }
+        });
+    }
+});
 app.UseAntiforgery();
 
 app.MapDefaultEndpoints();

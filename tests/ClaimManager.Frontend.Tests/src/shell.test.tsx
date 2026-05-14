@@ -16,12 +16,13 @@ import { LoginForm } from '../../../src/ClaimManager.Frontend/src/features/auth/
 import { createClaim, getClaim, getClaims, updateClaim } from '../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi';
 import { ApiError } from '../../../src/ClaimManager.Frontend/src/shared/api/client';
 import type { WorkspacePayload } from '../../../src/ClaimManager.Frontend/src/features/auth/api/authApi';
-import { getWorkspace, login, logout } from '../../../src/ClaimManager.Frontend/src/features/auth/api/authApi';
+import { getWorkspace, getIntegrationHealth, login, logout } from '../../../src/ClaimManager.Frontend/src/features/auth/api/authApi';
 
 vi.mock('../../../src/ClaimManager.Frontend/src/features/auth/api/authApi', () => ({
   getWorkspace: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
+  getIntegrationHealth: vi.fn(),
 }));
 
 vi.mock('../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi', () => ({
@@ -32,6 +33,7 @@ vi.mock('../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi', 
 }));
 
 const mockedGetWorkspace = vi.mocked(getWorkspace);
+const mockedGetIntegrationHealth = vi.mocked(getIntegrationHealth);
 const mockedLogin = vi.mocked(login);
 const mockedLogout = vi.mocked(logout);
 const mockedGetClaims = vi.mocked(getClaims);
@@ -164,6 +166,7 @@ function createWorkbenchRouter(initialEntries: string[]) {
 describe('ClaimManager workbench foundation', () => {
   beforeEach(() => {
     mockedGetWorkspace.mockResolvedValue(workspaceFixture);
+    mockedGetIntegrationHealth.mockResolvedValue({ entries: [], reportedAtUtc: new Date().toISOString() });
     mockedGetClaims.mockResolvedValue({ items: claimsQueueFixture, page: 1, pageSize: 20, totalCount: claimsQueueFixture.length });
     mockedGetClaim.mockResolvedValue(claimDetailFixture);
     mockedCreateClaim.mockResolvedValue(claimDetailFixture);

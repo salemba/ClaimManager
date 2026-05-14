@@ -37,10 +37,10 @@ export async function createClaim(values: ClaimFormValues) {
   });
 }
 
-export async function updateClaim(id: string, values: ClaimFormValues) {
+export async function updateClaim(id: string, values: ClaimFormValues, rowVersion: string) {
   return apiFetch<Claim>(`/api/claims/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(toRequest(values)),
+    body: JSON.stringify({ ...toRequest(values), rowVersion }),
   });
 }
 
@@ -61,16 +61,37 @@ export async function uploadClaimDocument(id: string, file: File) {
   });
 }
 
-export async function advanceClaimWorkflow(id: string) {
+export async function advanceClaimWorkflow(id: string, rowVersion: string) {
   return apiFetch<Claim>(`/api/claims/${id}/advance`, {
+    method: 'POST',
+    body: JSON.stringify({ rowVersion }),
+  });
+}
+
+export async function routeClaimForApproval(id: string, rationale: string, rowVersion: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/route-for-approval`, {
+    method: 'POST',
+    body: JSON.stringify({ rationale, rowVersion }),
+  });
+}
+
+export async function syncClaimPolicyData(id: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/sync-policy`, {
     method: 'POST',
     body: '{}',
   });
 }
 
-export async function routeClaimForApproval(id: string, rationale: string) {
-  return apiFetch<Claim>(`/api/claims/${id}/route-for-approval`, {
+export async function syncClaimPaymentData(id: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/sync-payment`, {
     method: 'POST',
-    body: JSON.stringify({ rationale }),
+    body: '{}',
+  });
+}
+
+export async function syncClaimDocumentData(id: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/sync-documents`, {
+    method: 'POST',
+    body: '{}',
   });
 }

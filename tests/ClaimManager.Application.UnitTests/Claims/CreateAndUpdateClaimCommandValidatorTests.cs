@@ -31,7 +31,8 @@ public sealed class CreateAndUpdateClaimCommandValidatorTests
             "POL-0100",
             DateTime.UtcNow.AddDays(-1),
             "Water damage",
-            "Pipe burst in lower level."));
+            "Pipe burst in lower level.",
+            []));
 
         Assert.True(result.IsValid);
     }

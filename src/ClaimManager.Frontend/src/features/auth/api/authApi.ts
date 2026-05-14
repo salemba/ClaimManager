@@ -18,6 +18,19 @@ export interface WorkspacePayload {
   claims: ClaimSummary[];
 }
 
+export interface IntegrationHealthEntry {
+  name: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  description: string;
+  activeIncidentStartedAtUtc: string | null;
+  lastResolvedIncidentAtUtc: string | null;
+}
+
+export interface IntegrationHealthResponse {
+  entries: IntegrationHealthEntry[];
+  reportedAtUtc: string;
+}
+
 export async function login(email: string, password: string) {
   return apiFetch<AuthSession>('/api/auth/login', {
     method: 'POST',
@@ -37,4 +50,8 @@ export async function getCurrentSession() {
 
 export async function getWorkspace() {
   return apiFetch<WorkspacePayload>('/api/workspace');
+}
+
+export async function getIntegrationHealth() {
+  return apiFetch<IntegrationHealthResponse>('/api/workspace/integration-health');
 }

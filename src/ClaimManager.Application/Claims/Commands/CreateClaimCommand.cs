@@ -8,3 +8,6 @@ public sealed record CreateClaimCommand(
     DateTime LossDateUtc,
     string LossType,
     string LossDescription);
+
+
+

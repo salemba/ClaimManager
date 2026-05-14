@@ -1,11 +1,18 @@
 namespace ClaimManager.Api.Endpoints.Claims;
 
 using ClaimManager.Application.Audit.Commands;
+using ClaimManager.Application.ClaimantCommunication.Commands;
+using ClaimManager.Application.ClaimantCommunication.Transformers;
+using ClaimManager.Application.ClaimantCommunication.Validators;
 using ClaimManager.Application.Claims.Commands;
 using ClaimManager.Application.Claims.Dtos;
 using ClaimManager.Application.Claims.Validators;
 using ClaimManager.Application.Security;
+using ClaimManager.Domain.ClaimantCommunication;
 using ClaimManager.Infrastructure.Integrations.DocumentRepository;
+using ClaimManager.Infrastructure.Integrations.Messaging;
+using ClaimManager.Infrastructure.Integrations.PaymentSystem;
+using ClaimManager.Infrastructure.Integrations.PolicySystem;
 using ClaimManager.Infrastructure.Identity;
 using ClaimManager.Infrastructure.Persistence;
 using FluentValidation.Results;
@@ -43,6 +50,11 @@ public static class ClaimsController
         group.MapPost("/{id:guid}/documents", UploadClaimDocumentAsync);
         group.MapPost("/{id:guid}/advance", AdvanceClaimWorkflowAsync);
         group.MapPost("/{id:guid}/route-for-approval", RouteClaimForApprovalAsync);
+        group.MapPost("/{id:guid}/sync-policy", SyncClaimPolicyDataAsync);
+        group.MapPost("/{id:guid}/sync-payment", SyncClaimPaymentDataAsync);
+        group.MapPost("/{id:guid}/sync-documents", SyncClaimDocumentDataAsync);
+        group.MapPost("/{id:guid}/notifications", SendClaimNotificationAsync);
+        group.MapPost("/{id:guid}/notifications/{notificationId:guid}/retry", RetryClaimNotificationAsync);
 
         return endpoints;
     }
@@ -117,6 +129,7 @@ public static class ClaimsController
         }
 
         var auditHistory = await GetAuditHistoryAsync(dbContext, claim.Id, cancellationToken);
+        var communications = await GetCommunicationsAsync(dbContext, claim.Id, cancellationToken);
         return TypedResults.Ok(ClaimDto.FromClaim(
             claim,
             auditHistory,
@@ -127,7 +140,8 @@ public static class ClaimsController
             claim.Documents
                 .OrderByDescending(document => document.UploadedAtUtc)
                 .Select(ClaimDocumentDto.FromDocument)
-                .ToArray()));
+                .ToArray(),
+            communications));
     }
 
     private static async Task<Results<Created<ClaimDto>, ValidationProblem, ProblemHttpResult>> CreateClaimAsync(
@@ -135,6 +149,8 @@ public static class ClaimsController
         ClaimsPrincipal principal,
         UserManager<ClaimManagerUser> userManager,
         ClaimManagerDbContext dbContext,
+        IPolicySystemClient policyClient,
+        IPaymentSystemClient paymentClient,
         CancellationToken cancellationToken)
     {
         var validator = new CreateClaimCommandValidator();
@@ -148,6 +164,26 @@ public static class ClaimsController
         if (user is null)
         {
             return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        PolicySummary? initialPolicyData = null;
+        string? initialSyncFailReason = null;
+
+        try
+        {
+            initialPolicyData = await policyClient.GetPolicyByNumberAsync(command.PolicyNumber, cancellationToken);
+            if (initialPolicyData is null)
+            {
+                initialSyncFailReason = "Policy not found for the recorded policy number.";
+            }
+        }
+        catch (Exception ex)
+        {
+            initialSyncFailReason = $"Policy system was unreachable or returned an unexpected error: {ex.Message}";
+            if (initialSyncFailReason.Length > 200)
+            {
+                initialSyncFailReason = initialSyncFailReason[..200];
+            }
         }
 
         for (var attempt = 0; attempt < 3; attempt++)
@@ -165,6 +201,66 @@ public static class ClaimsController
                 user.Id.ToString(),
                 createdAtUtc);
 
+            var paymentSyncedAtUtc = DateTime.UtcNow;
+            string paymentAuditAction;
+            string paymentAuditSummary;
+            PaymentRecord? initialPaymentData = null;
+            string? initialPaymentSyncFailReason = null;
+
+            try
+            {
+                initialPaymentData = await paymentClient.GetPaymentStatusByClaimAsync(claim.ClaimNumber, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                initialPaymentSyncFailReason = $"Payment system was unreachable or returned an unexpected error: {ex.Message}";
+                if (initialPaymentSyncFailReason.Length > 200)
+                {
+                    initialPaymentSyncFailReason = initialPaymentSyncFailReason[..200];
+                }
+            }
+
+            if (initialPaymentSyncFailReason is not null)
+            {
+                claim.MarkPaymentSyncFailed(initialPaymentSyncFailReason);
+                paymentAuditSummary = $"Initial payment data sync failed: {initialPaymentSyncFailReason}";
+                paymentAuditAction = "payment-sync-failed";
+            }
+            else
+            {
+                paymentAuditSummary = initialPaymentData is not null
+                    ? claim.ApplyPaymentData(
+                        initialPaymentData.PaymentReference,
+                        initialPaymentData.Status,
+                        initialPaymentData.Amount,
+                        initialPaymentData.Currency,
+                        initialPaymentData.SettledAt,
+                        paymentSyncedAtUtc)
+                    : claim.ApplyPaymentData(null, null, null, null, null, paymentSyncedAtUtc);
+                paymentAuditAction = "payment-synced";
+            }
+
+            var policySyncedAtUtc = DateTime.UtcNow;
+            string policyAuditAction;
+            string policyAuditSummary;
+
+            if (initialPolicyData is not null)
+            {
+                policyAuditSummary = claim.ApplyPolicyData(
+                    initialPolicyData.PolicyHolder,
+                    initialPolicyData.CoverageType,
+                    initialPolicyData.EffectiveDate,
+                    initialPolicyData.ExpirationDate,
+                    policySyncedAtUtc);
+                policyAuditAction = "policy-synced";
+            }
+            else
+            {
+                claim.MarkPolicySyncFailed(initialSyncFailReason!);
+                policyAuditSummary = $"Initial policy data sync failed: {initialSyncFailReason}";
+                policyAuditAction = "policy-sync-failed";
+            }
+
             dbContext.Claims.Add(claim);
             dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
                 claim.Id,
@@ -172,6 +268,18 @@ public static class ClaimsController
                 "Claim file created with claimant, claim, and loss information.",
                 user.Id.ToString(),
                 createdAtUtc).ToEntity());
+            dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+                claim.Id,
+                policyAuditAction,
+                policyAuditSummary,
+                user.Id.ToString(),
+                policySyncedAtUtc).ToEntity());
+            dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+                claim.Id,
+                paymentAuditAction,
+                paymentAuditSummary,
+                user.Id.ToString(),
+                paymentSyncedAtUtc).ToEntity());
 
             try
             {
@@ -188,6 +296,237 @@ public static class ClaimsController
             statusCode: StatusCodes.Status409Conflict,
             title: "Claim creation conflict",
             detail: "The claim number could not be reserved. Please retry the request.");
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> SyncClaimPolicyDataAsync(
+        Guid id,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        IPolicySystemClient policyClient,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claim = await dbContext.Claims.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (claim is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        PolicySummary? policyData = null;
+        string? syncFailReason = null;
+
+        try
+        {
+            policyData = await policyClient.GetPolicyByNumberAsync(claim.PolicyNumber, cancellationToken);
+            if (policyData is null)
+            {
+                syncFailReason = "Policy not found for the recorded policy number.";
+            }
+        }
+        catch (Exception ex)
+        {
+            syncFailReason = $"Policy system was unreachable or returned an unexpected error: {ex.Message}";
+            if (syncFailReason.Length > 200)
+            {
+                syncFailReason = syncFailReason[..200];
+            }
+        }
+
+        var syncedAtUtc = DateTime.UtcNow;
+        string auditAction;
+        string auditSummary;
+
+        if (policyData is not null)
+        {
+            auditSummary = claim.ApplyPolicyData(
+                policyData.PolicyHolder,
+                policyData.CoverageType,
+                policyData.EffectiveDate,
+                policyData.ExpirationDate,
+                syncedAtUtc);
+            auditAction = "policy-synced";
+        }
+        else
+        {
+            claim.MarkPolicySyncFailed(syncFailReason!);
+            auditSummary = $"Policy data synchronization failed: {syncFailReason}";
+            auditAction = "policy-sync-failed";
+        }
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(claim.Id, auditAction, auditSummary, user.Id.ToString(), syncedAtUtc).ToEntity());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> SyncClaimPaymentDataAsync(
+        Guid id,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        IPaymentSystemClient paymentClient,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claim = await dbContext.Claims.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (claim is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        PaymentRecord? paymentRecord = null;
+        string? syncFailReason = null;
+
+        try
+        {
+            paymentRecord = await paymentClient.GetPaymentStatusByClaimAsync(claim.ClaimNumber, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            syncFailReason = $"Payment system was unreachable or returned an unexpected error: {ex.Message}";
+            if (syncFailReason.Length > 200)
+            {
+                syncFailReason = syncFailReason[..200];
+            }
+        }
+
+        var syncedAtUtc = DateTime.UtcNow;
+        string auditAction;
+        string auditSummary;
+
+        if (syncFailReason is not null)
+        {
+            claim.MarkPaymentSyncFailed(syncFailReason);
+            auditSummary = $"Payment data synchronization failed: {syncFailReason}";
+            auditAction = "payment-sync-failed";
+        }
+        else if (paymentRecord is not null)
+        {
+            auditSummary = claim.ApplyPaymentData(
+                paymentRecord.PaymentReference,
+                paymentRecord.Status,
+                paymentRecord.Amount,
+                paymentRecord.Currency,
+                paymentRecord.SettledAt,
+                syncedAtUtc);
+            auditAction = "payment-synced";
+        }
+        else
+        {
+            auditSummary = claim.ApplyPaymentData(null, null, null, null, null, syncedAtUtc);
+            auditAction = "payment-synced";
+        }
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            claim.Id,
+            auditAction,
+            auditSummary,
+            user.Id.ToString(),
+            syncedAtUtc).ToEntity());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> SyncClaimDocumentDataAsync(
+        Guid id,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        IDocumentRepository documentRepository,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claim = await dbContext.Claims
+            .Include(c => c.Documents)
+            .SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (claim is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        IReadOnlyList<StoredClaimDocument>? repoDocuments = null;
+        string? syncFailReason = null;
+
+        try
+        {
+            repoDocuments = await documentRepository.GetDocumentListAsync(claim.ClaimNumber, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            syncFailReason = $"Document repository was unreachable or returned an unexpected error: {ex.Message}";
+            if (syncFailReason.Length > 200)
+            {
+                syncFailReason = syncFailReason[..200];
+            }
+        }
+
+        var syncedAtUtc = DateTime.UtcNow;
+        string auditAction;
+        string auditSummary;
+
+        if (syncFailReason is not null)
+        {
+            claim.MarkDocumentSyncFailed(syncFailReason);
+            auditSummary = $"Document data synchronization failed: {syncFailReason}";
+            auditAction = "documents-sync-failed";
+        }
+        else
+        {
+            var existingIds = claim.Documents.Select(document => document.StorageIdentifier).ToHashSet();
+            var importedCount = 0;
+
+            foreach (var storedDocument in repoDocuments ?? [])
+            {
+                if (existingIds.Contains(storedDocument.StorageIdentifier))
+                {
+                    continue;
+                }
+
+                var imported = claim.AddDocument(
+                    storedDocument.FileName,
+                    storedDocument.FileType,
+                    storedDocument.StorageIdentifier,
+                    user.Id.ToString(),
+                    syncedAtUtc,
+                    storedDocument.ContentType,
+                    storedDocument.FileSizeBytes,
+                    source: "repository-sync");
+
+                dbContext.ClaimDocuments.Add(imported);
+                existingIds.Add(storedDocument.StorageIdentifier);
+                importedCount++;
+            }
+
+            auditSummary = claim.ApplyDocumentSync(syncedAtUtc, importedCount);
+            auditAction = "documents-synced";
+        }
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            claim.Id,
+            auditAction,
+            auditSummary,
+            user.Id.ToString(),
+            syncedAtUtc).ToEntity());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
     }
 
     private static async Task<Results<Ok<ClaimDto>, ValidationProblem, ProblemHttpResult>> UpdateClaimAsync(
@@ -219,6 +558,8 @@ public static class ClaimsController
             return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
         }
 
+        dbContext.Entry(claim).Property(c => c.RowVersion).OriginalValue = command.RowVersion;
+
         var auditSummary = BuildUpdateSummary(claim, command);
         var changed = claim.UpdateCoreDetails(
             command.ClaimantName,
@@ -240,7 +581,17 @@ public static class ClaimsController
                 user.Id.ToString(),
                 claim.UpdatedAtUtc ?? DateTime.UtcNow).ToEntity());
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return TypedResults.Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Concurrency conflict",
+                    detail: "The claim has been modified by another user. Please reload the claim and try again.");
+            }
         }
 
         var auditHistory = await GetAuditHistoryAsync(dbContext, claim.Id, cancellationToken);
@@ -381,11 +732,13 @@ public static class ClaimsController
 
     private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> AdvanceClaimWorkflowAsync(
         Guid id,
+        AdvanceClaimWorkflowCommand command,
         ClaimsPrincipal principal,
         UserManager<ClaimManagerUser> userManager,
         ClaimManagerDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        command = command with { Id = id };
         var user = await userManager.GetUserAsync(principal);
         if (user is null)
         {
@@ -398,6 +751,7 @@ public static class ClaimsController
             return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
         }
 
+        dbContext.Entry(claim).Property(c => c.RowVersion).OriginalValue = command.RowVersion;
         var advancedAtUtc = DateTime.UtcNow;
 
         string auditSummary;
@@ -417,7 +771,17 @@ public static class ClaimsController
             user.Id.ToString(),
             advancedAtUtc).ToEntity());
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Concurrency conflict",
+                detail: "The claim has been modified by another user. Please reload the claim and try again.");
+        }
 
         return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
     }
@@ -451,6 +815,7 @@ public static class ClaimsController
             return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
         }
 
+        dbContext.Entry(claim).Property(c => c.RowVersion).OriginalValue = command.RowVersion;
         var routedAtUtc = DateTime.UtcNow;
 
         try
@@ -469,9 +834,184 @@ public static class ClaimsController
             user.Id.ToString(),
             routedAtUtc).ToEntity());
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Concurrency conflict",
+                detail: "The claim has been modified by another user. Please reload the claim and try again.");
+        }
 
         return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
+    }
+
+    private static async Task<Results<Created<ClaimCommunicationDto>, ValidationProblem, ProblemHttpResult>> SendClaimNotificationAsync(
+        Guid id,
+        SendClaimNotificationCommand command,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        IMessagingClient messagingClient,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var validator = new SendClaimNotificationCommandValidator();
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            return TypedResults.ValidationProblem(ToValidationDictionary(validationResult));
+        }
+
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claimExists = await dbContext.Claims.AnyAsync(c => c.Id == id, cancellationToken);
+        if (!claimExists)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        var (subject, body) = command.CommunicationType == "claimant-safe"
+            ? ClaimantSafeTransformer.Transform(command.Subject, command.Body)
+            : (command.Subject.Trim(), command.Body.Trim());
+
+        var createdAtUtc = DateTime.UtcNow;
+        var communication = ClaimCommunication.Create(
+            id,
+            command.CommunicationType,
+            command.Channel,
+            command.Recipient,
+            subject,
+            body,
+            correlationId: null,
+            user.Id.ToString(),
+            createdAtUtc);
+
+        dbContext.ClaimCommunications.Add(communication);
+
+        var attemptAtUtc = DateTime.UtcNow;
+        var outbound = new OutboundMessage(
+            communication.Recipient,
+            communication.Subject,
+            communication.Body,
+            communication.Id.ToString());
+
+        MessageDeliveryResult deliveryResult;
+        try
+        {
+            deliveryResult = await messagingClient.SendAsync(outbound, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            deliveryResult = new MessageDeliveryResult(false, null, $"Messaging client threw an unexpected error: {ex.Message}");
+        }
+
+        if (deliveryResult.Success && deliveryResult.DeliveryId is not null)
+        {
+            communication.RecordSent(deliveryResult.DeliveryId, attemptAtUtc);
+        }
+        else
+        {
+            communication.RecordFailed(deliveryResult.FailureReason ?? "Delivery failed without a reason.", attemptAtUtc);
+        }
+
+        var auditSummary = communication.Status == "sent"
+            ? $"Outbound {communication.CommunicationType} notification sent via {communication.Channel} to {communication.Recipient}. Delivery ID: {communication.DeliveryId}."
+            : $"Outbound {communication.CommunicationType} notification failed via {communication.Channel} to {communication.Recipient}. Reason: {communication.FailureReason}";
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            id,
+            communication.Status == "sent" ? "notification-sent" : "notification-failed",
+            auditSummary,
+            user.Id.ToString(),
+            attemptAtUtc).ToEntity());
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Created(
+            $"/api/claims/{id}/notifications/{communication.Id}",
+            ClaimCommunicationDto.FromCommunication(communication));
+    }
+
+    private static async Task<Results<Ok<ClaimCommunicationDto>, ProblemHttpResult>> RetryClaimNotificationAsync(
+        Guid id,
+        Guid notificationId,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        IMessagingClient messagingClient,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var communication = await dbContext.ClaimCommunications
+            .SingleOrDefaultAsync(c => c.Id == notificationId && c.ClaimId == id, cancellationToken);
+
+        if (communication is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Notification not found", detail: "The requested notification could not be found for this claim.");
+        }
+
+        if (!communication.IsRetryEligible())
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Retry not allowed",
+                detail: $"Cannot retry a notification in '{communication.Status}' state. Only failed notifications can be retried.");
+        }
+
+        communication.PrepareRetry();
+
+        var attemptAtUtc = DateTime.UtcNow;
+        var outbound = new OutboundMessage(
+            communication.Recipient,
+            communication.Subject,
+            communication.Body,
+            communication.Id.ToString());
+
+        MessageDeliveryResult deliveryResult;
+        try
+        {
+            deliveryResult = await messagingClient.SendAsync(outbound, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            deliveryResult = new MessageDeliveryResult(false, null, $"Messaging client threw an unexpected error: {ex.Message}");
+        }
+
+        if (deliveryResult.Success && deliveryResult.DeliveryId is not null)
+        {
+            communication.RecordSent(deliveryResult.DeliveryId, attemptAtUtc);
+        }
+        else
+        {
+            communication.RecordFailed(deliveryResult.FailureReason ?? "Delivery failed without a reason.", attemptAtUtc);
+        }
+
+        var auditSummary = communication.Status == "sent"
+            ? $"Retry of {communication.CommunicationType} notification succeeded via {communication.Channel} to {communication.Recipient}. Delivery ID: {communication.DeliveryId}."
+            : $"Retry of {communication.CommunicationType} notification failed via {communication.Channel} to {communication.Recipient}. Reason: {communication.FailureReason}";
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            id,
+            communication.Status == "sent" ? "notification-sent" : "notification-failed",
+            auditSummary,
+            user.Id.ToString(),
+            attemptAtUtc).ToEntity());
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(ClaimCommunicationDto.FromCommunication(communication));
     }
 
     private static async Task<ClaimDto> BuildClaimDtoAsync(
@@ -490,8 +1030,21 @@ public static class ClaimsController
             .OrderByDescending(document => document.UploadedAtUtc)
             .Select(document => ClaimDocumentDto.FromDocument(document))
             .ToArrayAsync(cancellationToken);
+        var communications = await GetCommunicationsAsync(dbContext, claim.Id, cancellationToken);
 
-        return ClaimDto.FromClaim(claim, auditHistory, notes, documents);
+        return ClaimDto.FromClaim(claim, auditHistory, notes, documents, communications);
+    }
+
+    private static async Task<IReadOnlyList<ClaimCommunicationDto>> GetCommunicationsAsync(
+        ClaimManagerDbContext dbContext,
+        Guid claimId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.ClaimCommunications
+            .Where(c => c.ClaimId == claimId)
+            .OrderByDescending(c => c.CreatedAtUtc)
+            .Select(c => ClaimCommunicationDto.FromCommunication(c))
+            .ToArrayAsync(cancellationToken);
     }
 
     private static async Task<IReadOnlyList<ClaimAuditDto>> GetAuditHistoryAsync(

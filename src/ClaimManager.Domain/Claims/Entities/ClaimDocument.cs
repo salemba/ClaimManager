@@ -19,4 +19,6 @@ public sealed class ClaimDocument
     public DateTime UploadedAtUtc { get; set; }
 
     public string UploadedByUserId { get; set; } = string.Empty;
+
+    public string Source { get; set; } = "uploaded";
 }

@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { addClaimNote, advanceClaimWorkflow, getClaim, routeClaimForApproval, updateClaim, uploadClaimDocument } from '../api/claimsApi';
+import { addClaimNote, advanceClaimWorkflow, getClaim, routeClaimForApproval, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../api/claimsApi';
+import { sendClaimNotification, retryClaimNotification } from '../../claimant-communication/api';
+import { ClaimCommunicationsPanel } from '../../claimant-communication/ClaimCommunicationsPanel';
+import type { SendNotificationRequest } from '../../claimant-communication/types';
 import { ClaimForm } from '../components/ClaimForm';
 import { ClaimDocumentsPanel } from '../components/ClaimDocumentsPanel';
 import { ClaimNotesPanel } from '../components/ClaimNotesPanel';
@@ -26,6 +29,14 @@ export function EditClaimPage() {
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [pendingNotes, setPendingNotes] = useState<ClaimNote[]>([]);
   const [pendingDocuments, setPendingDocuments] = useState<ClaimDocument[]>([]);
+  const [policySyncError, setPolicySyncError] = useState<string | null>(null);
+  const [paymentSyncError, setPaymentSyncError] = useState<string | null>(null);
+  const [documentSyncError, setDocumentSyncError] = useState<string | null>(null);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [sendNotificationError, setSendNotificationError] = useState<string | null>(null);
+  const [retryNotificationError, setRetryNotificationError] = useState<string | null>(null);
+  const [retryingNotificationId, setRetryingNotificationId] = useState<string | null>(null);
 
   const claimQuery = useQuery({
     queryKey: ['claims', claimId],
@@ -43,7 +54,7 @@ export function EditClaimPage() {
   }, [claimQuery.data]);
 
   const updateClaimMutation = useMutation({
-    mutationFn: (values: ClaimFormValues) => updateClaim(claimId!, values),
+    mutationFn: (values: ClaimFormValues) => updateClaim(claimId!, values, claimQuery.data!.rowVersion),
     onSuccess: async () => {
       setSubmitError(null);
       setSuccessMessage('Claim file updated and audit history refreshed.');
@@ -94,11 +105,8 @@ export function EditClaimPage() {
     },
   });
 
-  const [advanceError, setAdvanceError] = useState<string | null>(null);
-  const [routeError, setRouteError] = useState<string | null>(null);
-
-  const advanceClaimMutation = useMutation({
-    mutationFn: () => advanceClaimWorkflow(claimId!),
+  const advanceWorkflowMutation = useMutation({
+    mutationFn: (rowVersion: string) => advanceClaimWorkflow(claimId!, rowVersion),
     onSuccess: async () => {
       setAdvanceError(null);
       await invalidateClaimQueries(queryClient, claimId);
@@ -108,12 +116,13 @@ export function EditClaimPage() {
         setAdvanceError(error.message);
         return;
       }
-      setAdvanceError('Unable to advance the workflow right now.');
+      setAdvanceError('Unable to advance the claim workflow right now.');
     },
   });
 
   const routeForApprovalMutation = useMutation({
-    mutationFn: (rationale: string) => routeClaimForApproval(claimId!, rationale),
+    mutationFn: ({ rationale, rowVersion }: { rationale: string; rowVersion: string }) =>
+      routeClaimForApproval(claimId!, rationale, rowVersion),
     onSuccess: async () => {
       setRouteError(null);
       await invalidateClaimQueries(queryClient, claimId);
@@ -124,6 +133,90 @@ export function EditClaimPage() {
         return;
       }
       setRouteError('Unable to route the claim for approval right now.');
+    },
+  });
+
+  const syncPolicyMutation = useMutation({
+    mutationFn: () => syncClaimPolicyData(claimId!),
+    onSuccess: async () => {
+      setPolicySyncError(null);
+      setSuccessMessage('Policy data synchronized and claim context refreshed.');
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setPolicySyncError(error.message);
+        return;
+      }
+
+      setPolicySyncError('Unable to synchronize policy data right now.');
+    },
+  });
+
+  const syncPaymentMutation = useMutation({
+    mutationFn: () => syncClaimPaymentData(claimId!),
+    onSuccess: async () => {
+      setPaymentSyncError(null);
+      setSuccessMessage('Payment data synchronized and claim context refreshed.');
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setPaymentSyncError(error.message);
+        return;
+      }
+
+      setPaymentSyncError('Unable to synchronize payment data right now.');
+    },
+  });
+
+  const sendNotificationMutation = useMutation({
+    mutationFn: (request: SendNotificationRequest) =>
+      sendClaimNotification(claimId!, request),
+    onSuccess: async () => {
+      setSendNotificationError(null);
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setSendNotificationError(error.message);
+        return;
+      }
+      setSendNotificationError('Unable to send the notification right now.');
+    },
+  });
+
+  const retryNotificationMutation = useMutation({
+    mutationFn: (notificationId: string) => retryClaimNotification(claimId!, notificationId),
+    onSuccess: async () => {
+      setRetryNotificationError(null);
+      setRetryingNotificationId(null);
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      setRetryingNotificationId(null);
+      if (error instanceof ApiError) {
+        setRetryNotificationError(error.message);
+        return;
+      }
+      setRetryNotificationError('Unable to retry the notification right now.');
+    },
+  });
+
+  const syncDocumentsMutation = useMutation({
+    mutationFn: () => syncClaimDocumentData(claimId!),
+    onSuccess: async () => {
+      setDocumentSyncError(null);
+      setSuccessMessage('Document repository synchronized and claim context refreshed.');
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setDocumentSyncError(error.message);
+        return;
+      }
+
+      setDocumentSyncError('Unable to synchronize document repository right now.');
     },
   });
 
@@ -159,13 +252,13 @@ export function EditClaimPage() {
 
         <WorkflowActionsPanel
           claim={claimQuery.data}
-          onAdvance={async () => {
-            await advanceClaimMutation.mutateAsync();
+          onAdvance={async (rowVersion) => {
+            await advanceWorkflowMutation.mutateAsync(rowVersion);
           }}
-          onRouteForApproval={async (rationale) => {
-            await routeForApprovalMutation.mutateAsync(rationale);
+          onRouteForApproval={async (rationale, rowVersion) => {
+            await routeForApprovalMutation.mutateAsync({ rationale, rowVersion });
           }}
-          advancing={advanceClaimMutation.isPending}
+          advancing={advanceWorkflowMutation.isPending}
           routing={routeForApprovalMutation.isPending}
           advanceError={advanceError}
           routeError={routeError}
@@ -178,17 +271,97 @@ export function EditClaimPage() {
             gap: 3,
           }}
         >
-          <ClaimForm
-            mode="edit"
-            initialValues={claimToFormValues(claimQuery.data)}
-            submitLabel="Save claim updates"
-            busy={updateClaimMutation.isPending}
-            submitError={submitError}
-            onSubmit={async (values) => {
-              setSuccessMessage(null);
-              await updateClaimMutation.mutateAsync(values);
-            }}
-          />
+          <Stack spacing={3}>
+            <ClaimForm
+              mode="edit"
+              initialValues={claimToFormValues(claimQuery.data)}
+              submitLabel="Save claim updates"
+              busy={updateClaimMutation.isPending}
+              submitError={submitError}
+              onSubmit={async (values) => {
+                setSuccessMessage(null);
+                await updateClaimMutation.mutateAsync(values);
+              }}
+            />
+
+            <Paper
+              component="section"
+              variant="outlined"
+              sx={{ p: { xs: 3, md: 4 }, borderColor: 'divider', bgcolor: 'background.default' }}
+              aria-label="Policy System Data"
+            >
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
+                  <div>
+                    <Typography variant="overline" color="text.secondary">
+                      External policy source
+                    </Typography>
+                    <Typography variant="h3">Policy System Data</Typography>
+                  </div>
+
+                  <Button
+                    variant="outlined"
+                    onClick={() => syncPolicyMutation.mutate()}
+                    disabled={syncPolicyMutation.isPending}
+                  >
+                    Sync Policy Data
+                  </Button>
+                </Stack>
+
+                {policySyncError ? <Alert severity="error">{policySyncError}</Alert> : null}
+
+                <Stack spacing={1}>
+                  <Typography variant="body2"><strong>Policy holder:</strong> {claimQuery.data.policyHolder ?? 'Not yet synchronized'}</Typography>
+                  <Typography variant="body2"><strong>Coverage type:</strong> {claimQuery.data.coverageType ?? '—'}</Typography>
+                  <Typography variant="body2"><strong>Effective date:</strong> {claimQuery.data.policyEffectiveDate ?? '—'}</Typography>
+                  <Typography variant="body2"><strong>Expiration date:</strong> {claimQuery.data.policyExpirationDate ?? '—'}</Typography>
+                  <Typography variant="body2">
+                    <strong>Last synced:</strong> {claimQuery.data.policySyncedAtUtc ? new Date(claimQuery.data.policySyncedAtUtc).toLocaleString() : 'Never'}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            <Paper
+              component="section"
+              variant="outlined"
+              sx={{ p: { xs: 3, md: 4 }, borderColor: 'divider', bgcolor: 'background.default' }}
+              aria-label="Payment System Data"
+            >
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
+                  <div>
+                    <Typography variant="overline" color="text.secondary">
+                      External payment source
+                    </Typography>
+                    <Typography variant="h3">Payment System Data</Typography>
+                  </div>
+
+                  <Button
+                    variant="outlined"
+                    onClick={() => syncPaymentMutation.mutate()}
+                    disabled={syncPaymentMutation.isPending}
+                  >
+                    Sync Payment Data
+                  </Button>
+                </Stack>
+
+                {paymentSyncError ? <Alert severity="error">{paymentSyncError}</Alert> : null}
+
+                <Stack spacing={1}>
+                  <Typography variant="body2"><strong>Payment reference:</strong> {claimQuery.data.paymentReference ?? 'Not yet synchronized'}</Typography>
+                  <Typography variant="body2"><strong>Status:</strong> {claimQuery.data.paymentStatus ?? '—'}</Typography>
+                  <Typography variant="body2">
+                    <strong>Amount:</strong> {claimQuery.data.paymentAmount != null ? `${claimQuery.data.paymentAmount.toFixed(2)} ${claimQuery.data.paymentCurrency ?? ''}`.trim() : '—'}
+                  </Typography>
+                  <Typography variant="body2"><strong>Settled at:</strong> {claimQuery.data.paymentSettledAt ? new Date(claimQuery.data.paymentSettledAt).toLocaleString() : '—'}</Typography>
+                  <Typography variant="body2">
+                    <strong>Last synced:</strong> {claimQuery.data.paymentSyncedAtUtc ? new Date(claimQuery.data.paymentSyncedAtUtc).toLocaleString() : 'Never'}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Paper>
+          </Stack>
 
           <Stack spacing={3}>
             <ClaimNotesPanel
@@ -204,12 +377,34 @@ export function EditClaimPage() {
               documents={visibleDocuments}
               busy={uploadDocumentMutation.isPending}
               errorMessage={documentError}
+              onSync={async () => {
+                await syncDocumentsMutation.mutateAsync();
+              }}
+              syncing={syncDocumentsMutation.isPending}
+              syncError={documentSyncError}
+              documentSyncedAtUtc={claimQuery.data.documentSyncedAtUtc}
               onSubmit={async (file) => {
                 return uploadDocumentMutation.mutateAsync(file);
               }}
             />
 
             <WorkflowTimeline auditHistory={claimQuery.data.auditHistory} />
+
+            <ClaimCommunicationsPanel
+              claimId={claimId!}
+              communications={claimQuery.data.communications ?? []}
+              onSend={async (request) => {
+                await sendNotificationMutation.mutateAsync(request);
+              }}
+              onRetry={async (notificationId) => {
+                setRetryingNotificationId(notificationId);
+                await retryNotificationMutation.mutateAsync(notificationId);
+              }}
+              sending={sendNotificationMutation.isPending}
+              retryingId={retryingNotificationId}
+              sendError={sendNotificationError}
+              retryError={retryNotificationError}
+            />
           </Stack>
         </Stack>
       </Stack>

@@ -56,6 +56,46 @@ public sealed class Claim
 
     public string? DataIntegrityWarningMessage { get; set; }
 
+    public string? PolicyHolder { get; set; }
+
+    public string? CoverageType { get; set; }
+
+    public DateOnly? PolicyEffectiveDate { get; set; }
+
+    public DateOnly? PolicyExpirationDate { get; set; }
+
+    public DateTime? PolicySyncedAtUtc { get; set; }
+
+    public string? PaymentReference { get; set; }
+
+    public string? PaymentStatus { get; set; }
+
+    public decimal? PaymentAmount { get; set; }
+
+    public string? PaymentCurrency { get; set; }
+
+    public DateTimeOffset? PaymentSettledAt { get; set; }
+
+    public DateTime? PaymentSyncedAtUtc { get; set; }
+
+    public DateTime? DocumentSyncedAtUtc { get; set; }
+
+    public byte[] RowVersion { get; set; } = [];
+
+    public IReadOnlyList<string> GetAvailableActions()
+    {
+        var actions = new List<string>();
+        if (_advanceTransitions.ContainsKey(Status))
+        {
+            actions.Add("advance");
+        }
+        if (_approvalRoutingStates.Contains(Status))
+        {
+            actions.Add("route-for-approval");
+        }
+        return actions;
+    }
+
     public static Claim Create(
         string claimNumber,
         string claimantName,
@@ -149,10 +189,9 @@ public sealed class Claim
         return note;
     }
 
-    public string AdvanceWorkflow(string performedByUserId, DateTime updatedAtUtc)
+    public string AdvanceWorkflow(string performedByUserId, DateTime advancedAtUtc)
     {
         var normalizedUserId = NormalizeRequired(performedByUserId, nameof(performedByUserId));
-        var normalizedUpdatedAtUtc = EnsurePastOrPresentUtc(updatedAtUtc, nameof(updatedAtUtc));
 
         if (!_advanceTransitions.TryGetValue(Status, out var transition))
         {
@@ -166,18 +205,18 @@ public sealed class Claim
         BlockerType = null;
         BlockerReason = null;
         UpdatedByUserId = normalizedUserId;
-        UpdatedAtUtc = normalizedUpdatedAtUtc;
+        UpdatedAtUtc = advancedAtUtc;
 
         return transition.NextExpectedAction is not null
             ? $"Claim progressed from {previousStatus} to {Status}. Next action: {NextExpectedAction}."
             : $"Claim progressed from {previousStatus} to {Status}.";
     }
 
-    public void RouteForPaymentApproval(string rationale, string performedByUserId, DateTime updatedAtUtc)
+    public void RouteForPaymentApproval(string rationale, string performedByUserId, DateTime routedAtUtc)
     {
         var normalizedUserId = NormalizeRequired(performedByUserId, nameof(performedByUserId));
         var normalizedRationale = NormalizeRequired(rationale, nameof(rationale));
-        var normalizedUpdatedAtUtc = EnsurePastOrPresentUtc(updatedAtUtc, nameof(updatedAtUtc));
+        var normalizedUpdatedAtUtc = EnsurePastOrPresentUtc(routedAtUtc, nameof(routedAtUtc));
 
         if (!_approvalRoutingStates.Contains(Status))
         {
@@ -193,6 +232,136 @@ public sealed class Claim
         UpdatedAtUtc = normalizedUpdatedAtUtc;
     }
 
+    public string ApplyPolicyData(
+        string policyHolder,
+        string coverageType,
+        DateOnly effectiveDate,
+        DateOnly expirationDate,
+        DateTime syncedAtUtc)
+    {
+        PolicyHolder = NormalizeOptional(policyHolder);
+        CoverageType = NormalizeOptional(coverageType);
+        PolicyEffectiveDate = effectiveDate;
+        PolicyExpirationDate = expirationDate;
+        PolicySyncedAtUtc = EnsurePastOrPresentUtc(syncedAtUtc, nameof(syncedAtUtc));
+
+        var clearedPolicyWarning = HasDataIntegrityWarning &&
+            !string.IsNullOrWhiteSpace(DataIntegrityWarningMessage) &&
+            DataIntegrityWarningMessage.Contains("policy", StringComparison.OrdinalIgnoreCase);
+
+        if (clearedPolicyWarning)
+        {
+            HasDataIntegrityWarning = false;
+            DataIntegrityWarningMessage = null;
+        }
+
+        var summary =
+            $"Policy data synchronized from external policy system. Policy holder: {PolicyHolder}, coverage: {CoverageType}, effective {PolicyEffectiveDate:yyyy-MM-dd} to {PolicyExpirationDate:yyyy-MM-dd}.";
+
+        return clearedPolicyWarning
+            ? $"{summary} Previous data integrity warning cleared."
+            : summary;
+    }
+
+    public void MarkPolicySyncFailed(string reason)
+    {
+        var normalizedReason = string.IsNullOrWhiteSpace(reason)
+            ? "reason unknown."
+            : reason.Trim();
+
+        var message = $"Policy data synchronization failed — {normalizedReason}";
+
+        HasDataIntegrityWarning = true;
+        DataIntegrityWarningMessage = message.Length > 500 ? message[..500] : message;
+    }
+
+    public string ApplyPaymentData(
+        string? paymentReference,
+        string? paymentStatus,
+        decimal? amount,
+        string? currency,
+        DateTimeOffset? settledAt,
+        DateTime syncedAtUtc)
+    {
+        PaymentReference = NormalizeOptional(paymentReference);
+        PaymentStatus = NormalizeOptional(paymentStatus);
+        PaymentAmount = amount;
+        PaymentCurrency = NormalizeOptional(currency);
+        PaymentSettledAt = settledAt;
+        PaymentSyncedAtUtc = EnsurePastOrPresentUtc(syncedAtUtc, nameof(syncedAtUtc));
+
+        var clearedPaymentWarning = HasDataIntegrityWarning &&
+            !string.IsNullOrWhiteSpace(DataIntegrityWarningMessage) &&
+            DataIntegrityWarningMessage.Contains("payment", StringComparison.OrdinalIgnoreCase);
+
+        if (clearedPaymentWarning)
+        {
+            HasDataIntegrityWarning = false;
+            DataIntegrityWarningMessage = null;
+        }
+
+        var hasPaymentData = PaymentReference is not null ||
+            PaymentStatus is not null ||
+            PaymentAmount is not null ||
+            PaymentCurrency is not null ||
+            PaymentSettledAt is not null;
+
+        var summary = hasPaymentData
+            ? $"Payment data synchronized. Reference: {PaymentReference}, status: {PaymentStatus ?? "unknown"}, amount: {FormatPaymentAmount(PaymentAmount)} {PaymentCurrency}."
+            : "Payment data synchronized — no active payment on file.";
+
+        return clearedPaymentWarning
+            ? $"{summary} Previous data integrity warning cleared."
+            : summary;
+    }
+
+    public void MarkPaymentSyncFailed(string reason)
+    {
+        var normalizedReason = string.IsNullOrWhiteSpace(reason)
+            ? "reason unknown."
+            : reason.Trim();
+
+        var message = $"Payment data synchronization failed — {normalizedReason}";
+
+        HasDataIntegrityWarning = true;
+        DataIntegrityWarningMessage = message.Length > 500 ? message[..500] : message;
+    }
+
+    public string ApplyDocumentSync(DateTime syncedAtUtc, int importedCount)
+    {
+        DocumentSyncedAtUtc = EnsurePastOrPresentUtc(syncedAtUtc, nameof(syncedAtUtc));
+
+        var clearedDocumentWarning = HasDataIntegrityWarning &&
+            !string.IsNullOrWhiteSpace(DataIntegrityWarningMessage) &&
+            DataIntegrityWarningMessage.Contains("document", StringComparison.OrdinalIgnoreCase);
+
+        if (clearedDocumentWarning)
+        {
+            HasDataIntegrityWarning = false;
+            DataIntegrityWarningMessage = null;
+        }
+
+        var summary = importedCount > 0
+            ? $"Document repository synchronized. {importedCount} document(s) imported from external repository."
+            : "Document repository synchronized. No new documents found.";
+
+        return clearedDocumentWarning
+            ? $"{summary} Previous data integrity warning cleared."
+            : summary;
+    }
+
+    public void MarkDocumentSyncFailed(string reason)
+    {
+        var normalizedReason = string.IsNullOrWhiteSpace(reason)
+            ? "reason unknown."
+            : reason.Trim();
+
+        var message = $"Document data synchronization failed — {normalizedReason}";
+
+        HasDataIntegrityWarning = true;
+        DataIntegrityWarningMessage = message.Length > 500 ? message[..500] : message;
+    }
+
     public ClaimDocument AddDocument(
         string fileName,
         string fileType,
@@ -200,7 +369,8 @@ public sealed class Claim
         string uploadedByUserId,
         DateTime uploadedAtUtc,
         string? contentType = null,
-        long fileSizeBytes = 0)
+        long fileSizeBytes = 0,
+        string source = "uploaded")
     {
         if (fileSizeBytes < 0)
         {
@@ -217,11 +387,17 @@ public sealed class Claim
             UploadedByUserId = NormalizeRequired(uploadedByUserId, nameof(uploadedByUserId)),
             UploadedAtUtc = EnsurePastOrPresentUtc(uploadedAtUtc, nameof(uploadedAtUtc)),
             ContentType = string.IsNullOrWhiteSpace(contentType) ? null : contentType.Trim(),
-            FileSizeBytes = fileSizeBytes
+            FileSizeBytes = fileSizeBytes,
+            Source = NormalizeRequired(source, nameof(source))
         };
 
         Documents.Add(document);
         return document;
+    }
+
+    private static string FormatPaymentAmount(decimal? amount)
+    {
+        return amount?.ToString("F2") ?? "N/A";
     }
 
     private static string NormalizeRequired(string value, string paramName)
@@ -233,6 +409,16 @@ public sealed class Claim
         }
 
         return normalized;
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim();
     }
 
     private static DateTime EnsureLossDate(DateTime value)

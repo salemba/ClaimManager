@@ -27,6 +27,9 @@ const baseClaim: Claim = {
   nextExpectedAction: 'Initial review',
   hasDataIntegrityWarning: false,
   dataIntegrityWarningMessage: null,
+  policySyncedAtUtc: null,
+  paymentSyncedAtUtc: null,
+  documentSyncedAtUtc: null,
   auditHistory: [
     {
       action: 'created',
@@ -37,6 +40,9 @@ const baseClaim: Claim = {
   ],
   notes: [],
   documents: [],
+  communications: [],
+  rowVersion: 'AAAAAAAAAAM=',
+  availableActions: [],
 };
 
 function renderStateSummaryPanel(claim: Claim) {
@@ -129,6 +135,47 @@ describe('ClaimStateSummaryPanel', () => {
     renderStateSummaryPanel(pendingClaim);
 
     expect(screen.getByText('Awaiting workflow progression')).toBeInTheDocument();
+  });
+
+  it('shows "never synced" freshness context for all dependencies when warning is active and no syncs have occurred', () => {
+    const warnClaim: Claim = {
+      ...baseClaim,
+      hasDataIntegrityWarning: true,
+      dataIntegrityWarningMessage: 'Policy data synchronization failed — service unavailable.',
+      policySyncedAtUtc: null,
+      paymentSyncedAtUtc: null,
+      documentSyncedAtUtc: null,
+    };
+
+    renderStateSummaryPanel(warnClaim);
+
+    expect(screen.getByText('Policy: never synced')).toBeInTheDocument();
+    expect(screen.getByText('Payment: never synced')).toBeInTheDocument();
+    expect(screen.getByText('Documents: never synced')).toBeInTheDocument();
+  });
+
+  it('shows last sync timestamp in freshness context when syncs have occurred', () => {
+    const warnClaim: Claim = {
+      ...baseClaim,
+      hasDataIntegrityWarning: true,
+      dataIntegrityWarningMessage: 'Payment data synchronization failed — timeout.',
+      policySyncedAtUtc: '2026-05-14T10:00:00Z',
+      paymentSyncedAtUtc: null,
+      documentSyncedAtUtc: '2026-05-14T11:00:00Z',
+    };
+
+    renderStateSummaryPanel(warnClaim);
+
+    expect(screen.getByText(/Policy: last synced/)).toBeInTheDocument();
+    expect(screen.getByText('Payment: never synced')).toBeInTheDocument();
+    expect(screen.getByText(/Documents: last synced/)).toBeInTheDocument();
+  });
+
+  it('does not show freshness context when no data integrity warning is active', () => {
+    renderStateSummaryPanel(baseClaim);
+
+    expect(screen.queryByText(/never synced/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/last synced/)).not.toBeInTheDocument();
   });
 });
 

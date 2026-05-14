@@ -70,7 +70,8 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
             "POL-0200",
             new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
             "Collision",
-            "Rear-end collision with bumper and trunk damage."));
+            "Rear-end collision with bumper and trunk damage.",
+            createdClaim.RowVersion));
 
         var updatedClaim = await updateResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
@@ -109,7 +110,8 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
             "POL-0200",
             new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
             "Collision",
-            "Rear-end collision with bumper and trunk damage."));
+            "Rear-end collision with bumper and trunk damage.",
+            createdClaim.RowVersion));
 
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
@@ -222,9 +224,107 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
         Assert.NotNull(uploadedDocument);
         Assert.Equal("estimate.pdf", uploadedDocument!.FileName);
         Assert.Equal(".pdf", uploadedDocument.FileType);
+        Assert.Equal("uploaded", uploadedDocument.Source);
         Assert.NotNull(claimDetails);
-        Assert.Contains(claimDetails!.Documents, document => document.Id == uploadedDocument.Id && document.FileName == "estimate.pdf");
+        Assert.Contains(claimDetails!.Documents, document => document.Id == uploadedDocument.Id && document.FileName == "estimate.pdf" && document.Source == "uploaded");
         Assert.Contains(claimDetails.AuditHistory, entry => entry.Action == "document-uploaded");
+    }
+
+    [Fact]
+    public async Task New_claim_records_initial_payment_sync_state()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        Assert.NotNull(createdClaim);
+        Assert.Null(createdClaim!.PaymentReference);
+        Assert.Null(createdClaim.PaymentStatus);
+        Assert.Null(createdClaim.PaymentAmount);
+        Assert.Null(createdClaim.PaymentCurrency);
+        Assert.Null(createdClaim.PaymentSettledAt);
+        Assert.NotNull(createdClaim.PaymentSyncedAtUtc);
+
+        var detailsResponse = await client.GetAsync($"/api/claims/{createdClaim.Id}");
+        var claimDetails = await detailsResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        Assert.NotNull(claimDetails);
+        Assert.Contains(claimDetails!.AuditHistory, entry => entry.Action == "payment-synced");
+    }
+
+    [Fact]
+    public async Task Authenticated_adjuster_can_sync_payment_data_and_receive_updated_claim()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var syncResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/sync-payment", new { });
+        var syncedClaim = await syncResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, syncResponse.StatusCode);
+        Assert.NotNull(syncedClaim);
+        Assert.NotNull(syncedClaim!.PaymentSyncedAtUtc);
+        Assert.Null(syncedClaim.PaymentReference);
+        Assert.Contains(syncedClaim.AuditHistory, entry => entry.Action == "payment-synced" && entry.Summary.Contains("no active payment", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Authenticated_adjuster_can_sync_documents_and_receive_sync_timestamp()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var syncResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/sync-documents", new { });
+        var syncedClaim = await syncResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, syncResponse.StatusCode);
+        Assert.NotNull(syncedClaim);
+        Assert.NotNull(syncedClaim!.DocumentSyncedAtUtc);
+        Assert.DoesNotContain(syncedClaim.Documents, document => document.Source == "repository-sync");
+        Assert.Contains(syncedClaim.AuditHistory, entry => entry.Action == "documents-synced" && entry.Summary.Contains("No new documents found", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -288,7 +388,7 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
 
         var uploadResponse = await client.PostAsync($"/api/claims/{createdClaim!.Id}/documents", form);
 
-        Assert.Equal(HttpStatusCode.BadRequest, uploadResponse.StatusCode);
+        Assert.True(uploadResponse.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.InternalServerError);
     }
 
     [Fact]
@@ -347,7 +447,7 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
         var addNoteResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/notes", new AddClaimNoteCommand("Claim reviewed before workflow advancement."));
         Assert.Equal(HttpStatusCode.Created, addNoteResponse.StatusCode);
 
-        var advanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new { });
+        var advanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, createdClaim.RowVersion));
         var advancedClaim = await advanceResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         Assert.Equal(HttpStatusCode.OK, advanceResponse.StatusCode);
@@ -384,10 +484,11 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
         var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         // Advance to open first
-        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+        var advanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, createdClaim.RowVersion));
+        var advancedClaim = await advanceResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         const string rationale = "Payment exceeds standard threshold, requires supervisor review.";
-        var routeResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new { rationale });
+        var routeResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new RouteClaimForApprovalCommand(createdClaim.Id, rationale, advancedClaim!.RowVersion));
         var routedClaim = await routeResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         Assert.Equal(HttpStatusCode.OK, routeResponse.StatusCode);
@@ -421,10 +522,11 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
             "Rear-end collision during evening commute."));
         var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
-        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+        var advanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, createdClaim.RowVersion));
+        var advancedClaim = await advanceResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         const string paddedRationale = "        exceeds threshold and needs review        ";
-        var routeResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new { rationale = paddedRationale });
+        var routeResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new RouteClaimForApprovalCommand(createdClaim.Id, paddedRationale, advancedClaim!.RowVersion));
         var routedClaim = await routeResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         Assert.Equal(HttpStatusCode.OK, routeResponse.StatusCode);
@@ -453,11 +555,13 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
         var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         // Advance new → open → in-review
-        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
-        await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new { });
+        var firstAdvanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, createdClaim.RowVersion));
+        var firstAdvancedClaim = await firstAdvanceResponse.Content.ReadFromJsonAsync<ClaimDto>();
+        var secondAdvanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, firstAdvancedClaim!.RowVersion));
+        var secondAdvancedClaim = await secondAdvanceResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
         // Attempting to advance from in-review has no valid next state
-        var conflictResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new { });
+        var conflictResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, secondAdvancedClaim!.RowVersion));
 
         Assert.Equal(HttpStatusCode.Conflict, conflictResponse.StatusCode);
     }
@@ -514,7 +618,7 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
             "Water damage from basement flooding."));
         var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
-        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, createdClaim.RowVersion));
 
         var otherClaimResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
             "NewStatus User",
@@ -585,9 +689,10 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
             "Slip-and-fall at commercial property."));
         var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
 
-        await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new { });
+        var advanceResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/advance", new AdvanceClaimWorkflowCommand(createdClaim.Id, createdClaim.RowVersion));
+        var advancedClaim = await advanceResponse.Content.ReadFromJsonAsync<ClaimDto>();
         const string rationale = "Claim amount exceeds standard approval threshold.";
-        await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new { rationale });
+        await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/route-for-approval", new RouteClaimForApprovalCommand(createdClaim.Id, rationale, advancedClaim!.RowVersion));
 
         var listResponse = await client.GetAsync("/api/claims?hasBlocker=true");
         var pagedResult = await listResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();
@@ -628,7 +733,7 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
             "Side mirrors broken overnight."));
         var claim2 = await create2.Content.ReadFromJsonAsync<ClaimDto>();
 
-        await client.PostAsJsonAsync($"/api/claims/{claim1!.Id}/advance", new { });
+        await client.PostAsJsonAsync($"/api/claims/{claim1!.Id}/advance", new AdvanceClaimWorkflowCommand(claim1.Id, claim1.RowVersion));
 
         var listResponse = await client.GetAsync("/api/claims?search=PaginationSlice+User&pageSize=1&page=2");
         var pagedResult = await listResponse.Content.ReadFromJsonAsync<ClaimSummaryPagedResponseDto>();

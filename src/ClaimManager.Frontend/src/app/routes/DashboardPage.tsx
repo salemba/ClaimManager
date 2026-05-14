@@ -4,6 +4,7 @@ import FolderOpenRounded from '@mui/icons-material/FolderOpenRounded';
 import WarningAmberRounded from '@mui/icons-material/WarningAmberRounded';
 import { Box, List, ListItem, Paper, Stack, Typography } from '@mui/material';
 import type { WorkspacePayload } from '../../features/auth/api/authApi';
+import { IntegrationHealthPanel } from '../../features/workspace/IntegrationHealthPanel';
 import { PageSurface } from '../../shared/ui/PageSurface';
 import { StatusBadge } from '../../shared/ui/StatusBadge';
 
@@ -88,14 +89,7 @@ export function DashboardPage() {
           </Paper>
 
           <Stack spacing={3}>
-            <Paper component="section" variant="outlined" sx={{ p: 3 }}>
-              <Typography variant="h3" gutterBottom>
-                Next surfaces in this shell
-              </Typography>
-              <Typography color="text.secondary">
-                Claims now support live intake and maintenance while approvals and governance remain stable destinations for later stories.
-              </Typography>
-            </Paper>
+            <IntegrationHealthPanel />
 
             <Paper component="section" variant="outlined" sx={{ p: 3 }}>
               <Typography variant="h3" gutterBottom>
