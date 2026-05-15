@@ -66,8 +66,9 @@ function SyncFreshnessContext({ policySyncedAtUtc, paymentSyncedAtUtc, documentS
 }
 
 export function ClaimStateSummaryPanel({ claim }: ClaimStateSummaryPanelProps) {
-  const { status, blockerType, blockerReason, ownedByUserId, nextExpectedAction, hasDataIntegrityWarning, dataIntegrityWarningMessage } = claim;
+  const { status, blockerType, blockerReason, ownedByUserId, nextExpectedAction, hasDataIntegrityWarning, dataIntegrityWarningMessage, activeDataIntegrityIssues } = claim;
   const normalizedBlockerType = blockerType?.trim() || null;
+  const showIssueList = activeDataIntegrityIssues.length > 1;
 
   return (
     <Paper component="section" sx={{ p: { xs: 3, md: 4 } }} aria-label="Claim state summary">
@@ -137,6 +138,13 @@ export function ClaimStateSummaryPanel({ claim }: ClaimStateSummaryPanelProps) {
           <Alert severity="warning" icon={<WarningAmberRounded />}>
             <Stack spacing={0.5}>
               <span>{dataIntegrityWarningMessage ?? 'This claim has a data integrity issue that may require attention.'}</span>
+              {showIssueList ? (
+                <Typography variant="body2" component="div" color="inherit">
+                  {activeDataIntegrityIssues.map((issue) => (
+                    <div key={issue.dependency}>{issue.message}</div>
+                  ))}
+                </Typography>
+              ) : null}
               <SyncFreshnessContext
                 policySyncedAtUtc={claim.policySyncedAtUtc}
                 paymentSyncedAtUtc={claim.paymentSyncedAtUtc}

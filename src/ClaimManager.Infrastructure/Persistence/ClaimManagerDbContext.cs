@@ -107,6 +107,12 @@ public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext
             entity.Property(claim => claim.DataIntegrityWarningMessage)
                 .HasColumnName("data_integrity_warning_message")
                 .HasMaxLength(500);
+            entity.Property(claim => claim.ActiveDataIntegrityIssuesJson)
+                .HasColumnName("active_data_integrity_issues_json")
+                .HasColumnType("jsonb");
+            entity.Property(claim => claim.LastReconciliationDetailsJson)
+                .HasColumnName("last_reconciliation_details_json")
+                .HasColumnType("jsonb");
             entity.Property(claim => claim.PolicyHolder)
                 .HasColumnName("policy_holder")
                 .HasMaxLength(160);

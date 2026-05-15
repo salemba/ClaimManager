@@ -22,6 +22,20 @@ export interface ClaimAuditEntry {
   performedByUserId: string;
 }
 
+export interface ClaimDataIntegrityIssue {
+  dependency: string;
+  message: string;
+}
+
+export interface ClaimReconciliation {
+  attemptedAtUtc: string;
+  retriedDependencies: string[];
+  recoveredDependencies: string[];
+  unresolvedDependencies: string[];
+  summary: string;
+  isFullyReconciled: boolean;
+}
+
 export interface ClaimNote {
   id: string;
   content: string;
@@ -82,6 +96,8 @@ export interface Claim extends ClaimSummary {
   updatedByUserId: string | null;
   nextExpectedAction: string | null;
   dataIntegrityWarningMessage: string | null;
+  activeDataIntegrityIssues: ClaimDataIntegrityIssue[];
+  reconciliation: ClaimReconciliation | null;
   policyHolder: string | null;
   coverageType: string | null;
   policyEffectiveDate: string | null;

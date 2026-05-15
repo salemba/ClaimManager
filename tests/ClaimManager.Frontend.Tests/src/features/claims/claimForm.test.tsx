@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../../../../../src/ClaimManager.Frontend/src/app/providers/AppProviders';
 import { CreateClaimPage } from '../../../../../src/ClaimManager.Frontend/src/features/claims/routes/CreateClaimPage';
 import { EditClaimPage } from '../../../../../src/ClaimManager.Frontend/src/features/claims/routes/EditClaimPage';
-import { addClaimNote, createClaim, getClaim, getClaims, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../../../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi';
+import { addClaimNote, createClaim, getClaim, getClaims, reconcileClaimState, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../../../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi';
 import { ApiError } from '../../../../../src/ClaimManager.Frontend/src/shared/api/client';
+import type { Claim } from '../../../../../src/ClaimManager.Frontend/src/features/claims/types/Claim';
 
 vi.mock('../../../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi', () => ({
   getClaims: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('../../../../../src/ClaimManager.Frontend/src/features/claims/api/claims
   syncClaimPolicyData: vi.fn(),
   syncClaimPaymentData: vi.fn(),
   syncClaimDocumentData: vi.fn(),
+  reconcileClaimState: vi.fn(),
 }));
 
 const mockedGetClaims = vi.mocked(getClaims);
@@ -31,8 +33,9 @@ const mockedUploadClaimDocument = vi.mocked(uploadClaimDocument);
 const mockedSyncClaimPolicyData = vi.mocked(syncClaimPolicyData);
 const mockedSyncClaimPaymentData = vi.mocked(syncClaimPaymentData);
 const mockedSyncClaimDocumentData = vi.mocked(syncClaimDocumentData);
+const mockedReconcileClaimState = vi.mocked(reconcileClaimState);
 
-const claimFixture = {
+const claimFixture: Claim = {
   id: 'claim-1',
   claimNumber: 'CLM-0001',
   status: 'new',
@@ -65,8 +68,13 @@ const claimFixture = {
   paymentSettledAt: null,
   paymentSyncedAtUtc: '2026-05-11T00:00:00Z',
   documentSyncedAtUtc: null,
+  activeDataIntegrityIssues: [],
+  reconciliation: null,
   notes: [],
   documents: [],
+  communications: [],
+  rowVersion: 'AAAAAAAAAAM=',
+  availableActions: ['advance'],
   auditHistory: [
     {
       action: 'created',
@@ -146,6 +154,7 @@ describe('Claim form', () => {
     mockedSyncClaimPolicyData.mockResolvedValue(claimFixture);
     mockedSyncClaimPaymentData.mockResolvedValue(claimFixture);
     mockedSyncClaimDocumentData.mockResolvedValue(claimFixture);
+    mockedReconcileClaimState.mockResolvedValue(claimFixture);
   });
 
   afterEach(() => {
@@ -190,8 +199,25 @@ describe('Claim form', () => {
       nextExpectedAction: 'Initial review',
       hasDataIntegrityWarning: false,
       dataIntegrityWarningMessage: null,
+      activeDataIntegrityIssues: [],
+      reconciliation: null,
+      policyHolder: null,
+      coverageType: null,
+      policyEffectiveDate: null,
+      policyExpirationDate: null,
+      policySyncedAtUtc: null,
+      paymentReference: null,
+      paymentStatus: null,
+      paymentAmount: null,
+      paymentCurrency: null,
+      paymentSettledAt: null,
+      paymentSyncedAtUtc: null,
+      documentSyncedAtUtc: null,
       notes: [],
       documents: [],
+      communications: [],
+      rowVersion: 'AAAAAAAAAAQ=',
+      availableActions: ['advance'],
       auditHistory: [],
     });
 
@@ -261,7 +287,8 @@ describe('Claim form', () => {
     expect(screen.getByText(/Payment reference:/)).toBeInTheDocument();
     expect(screen.getByText('Claim file created with claimant, claim, and loss information.')).toBeInTheDocument();
 
-    // Tab past the WorkflowActionsPanel "Begin Review" button, then land on the first form field
+    // Tab past the reconciliation and workflow buttons, then land on the first form field
+    await user.tab();
     await user.tab();
     await user.tab();
     expect(claimantNameInput).toHaveFocus();
@@ -424,6 +451,32 @@ describe('Claim form', () => {
     });
 
     expect(await screen.findByText('Document repository synchronized and claim context refreshed.')).toBeInTheDocument();
+  }, 10000);
+
+  it('runs reconciliation from the edit page', async () => {
+    const user = userEvent.setup();
+
+    mockedReconcileClaimState.mockResolvedValue({
+      ...claimFixture,
+      reconciliation: {
+        attemptedAtUtc: '2026-05-15T06:00:00Z',
+        retriedDependencies: ['policy', 'payment', 'documents'],
+        recoveredDependencies: ['policy'],
+        unresolvedDependencies: [],
+        summary: 'Reconciliation retried Policy, Payment, Documents. Recovered: Policy. All claim integration dependencies are now aligned.',
+        isFullyReconciled: true,
+      },
+    });
+
+    renderEditClaimPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Run Reconciliation' }));
+
+    await waitFor(() => {
+      expect(mockedReconcileClaimState).toHaveBeenCalledWith('claim-1');
+    });
+
+    expect(await screen.findByText('Claim reconciliation completed and claim context refreshed.')).toBeInTheDocument();
   }, 10000);
 
   it('shows upload validation errors next to the document control', async () => {

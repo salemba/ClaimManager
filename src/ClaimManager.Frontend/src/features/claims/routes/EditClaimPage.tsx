@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { addClaimNote, advanceClaimWorkflow, getClaim, routeClaimForApproval, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../api/claimsApi';
+import { addClaimNote, advanceClaimWorkflow, getClaim, reconcileClaimState, routeClaimForApproval, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../api/claimsApi';
 import { sendClaimNotification, retryClaimNotification } from '../../claimant-communication/api';
 import { ClaimCommunicationsPanel } from '../../claimant-communication/ClaimCommunicationsPanel';
 import type { SendNotificationRequest } from '../../claimant-communication/types';
@@ -32,6 +32,7 @@ export function EditClaimPage() {
   const [policySyncError, setPolicySyncError] = useState<string | null>(null);
   const [paymentSyncError, setPaymentSyncError] = useState<string | null>(null);
   const [documentSyncError, setDocumentSyncError] = useState<string | null>(null);
+  const [reconciliationError, setReconciliationError] = useState<string | null>(null);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [sendNotificationError, setSendNotificationError] = useState<string | null>(null);
@@ -220,6 +221,23 @@ export function EditClaimPage() {
     },
   });
 
+  const reconcileClaimMutation = useMutation({
+    mutationFn: () => reconcileClaimState(claimId!),
+    onSuccess: async () => {
+      setReconciliationError(null);
+      setSuccessMessage('Claim reconciliation completed and claim context refreshed.');
+      await invalidateClaimQueries(queryClient, claimId);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setReconciliationError(error.message);
+        return;
+      }
+
+      setReconciliationError('Unable to reconcile claim state right now.');
+    },
+  });
+
   if (!claimId) {
     return <Navigate to="/claims" replace />;
   }
@@ -249,6 +267,61 @@ export function EditClaimPage() {
         {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
 
         <ClaimStateSummaryPanel claim={claimQuery.data} />
+
+        <Paper
+          component="section"
+          variant="outlined"
+          sx={{ p: { xs: 3, md: 4 }, borderColor: 'divider', bgcolor: 'background.default' }}
+          aria-label="Claim recovery"
+        >
+          <Stack spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
+              <div>
+                <Typography variant="overline" color="text.secondary">
+                  Recovery
+                </Typography>
+                <Typography variant="h3">Claim Reconciliation</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Rerun the current policy, payment, and document sync paths in one coordinated recovery attempt.
+                </Typography>
+              </div>
+
+              <Button
+                variant="contained"
+                onClick={() => reconcileClaimMutation.mutate()}
+                disabled={reconcileClaimMutation.isPending}
+              >
+                Run Reconciliation
+              </Button>
+            </Stack>
+
+            {reconciliationError ? <Alert severity="error">{reconciliationError}</Alert> : null}
+
+            {claimQuery.data.reconciliation ? (
+              <Alert severity={claimQuery.data.reconciliation.isFullyReconciled ? 'success' : 'warning'}>
+                <Stack spacing={0.75}>
+                  <span>{claimQuery.data.reconciliation.summary}</span>
+                  <Typography variant="caption" color="inherit">
+                    Last attempted {new Date(claimQuery.data.reconciliation.attemptedAtUtc).toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" color="inherit">
+                    Retried: {formatDependencyList(claimQuery.data.reconciliation.retriedDependencies)}
+                  </Typography>
+                  <Typography variant="body2" color="inherit">
+                    Recovered: {formatDependencyList(claimQuery.data.reconciliation.recoveredDependencies, 'None in the last attempt')}
+                  </Typography>
+                  <Typography variant="body2" color="inherit">
+                    Unresolved: {formatDependencyList(claimQuery.data.reconciliation.unresolvedDependencies, 'None')}
+                  </Typography>
+                </Stack>
+              </Alert>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No claim reconciliation attempt has been recorded yet.
+              </Typography>
+            )}
+          </Stack>
+        </Paper>
 
         <WorkflowActionsPanel
           claim={claimQuery.data}
@@ -418,5 +491,20 @@ async function invalidateClaimQueries(queryClient: ReturnType<typeof useQueryCli
     queryClient.refetchQueries({ queryKey: ['claims', claimId], exact: true }),
     queryClient.invalidateQueries({ queryKey: ['workspace'] }),
   ]);
+}
+
+function formatDependencyList(dependencies: string[], emptyLabel = 'None'): string {
+  if (dependencies.length === 0) {
+    return emptyLabel;
+  }
+
+  return dependencies
+    .map((dependency) => {
+      if (dependency === 'policy') return 'Policy';
+      if (dependency === 'payment') return 'Payment';
+      if (dependency === 'documents') return 'Documents';
+      return dependency;
+    })
+    .join(', ');
 }
 

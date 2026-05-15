@@ -1,5 +1,16 @@
 namespace ClaimManager.Domain.Claims;
 
+using System.Text.Json;
+
+public sealed record ClaimDataIntegrityIssue(string Dependency, string Message);
+
+public sealed record ClaimReconciliationDetails(
+    DateTime AttemptedAtUtc,
+    string[] RetriedDependencies,
+    string[] RecoveredDependencies,
+    string[] UnresolvedDependencies,
+    string Summary);
+
 public sealed class Claim
 {
     private static readonly Dictionary<string, (string NextState, string? NextExpectedAction)> _advanceTransitions = new()
@@ -55,6 +66,10 @@ public sealed class Claim
     public bool HasDataIntegrityWarning { get; set; }
 
     public string? DataIntegrityWarningMessage { get; set; }
+
+    public string? ActiveDataIntegrityIssuesJson { get; set; }
+
+    public string? LastReconciliationDetailsJson { get; set; }
 
     public string? PolicyHolder { get; set; }
 
@@ -245,21 +260,13 @@ public sealed class Claim
         PolicyExpirationDate = expirationDate;
         PolicySyncedAtUtc = EnsurePastOrPresentUtc(syncedAtUtc, nameof(syncedAtUtc));
 
-        var clearedPolicyWarning = HasDataIntegrityWarning &&
-            !string.IsNullOrWhiteSpace(DataIntegrityWarningMessage) &&
-            DataIntegrityWarningMessage.Contains("policy", StringComparison.OrdinalIgnoreCase);
-
-        if (clearedPolicyWarning)
-        {
-            HasDataIntegrityWarning = false;
-            DataIntegrityWarningMessage = null;
-        }
+        var clearedPolicyWarning = ResolveDataIntegrityIssue("policy") || ClearLegacyWarning("policy");
 
         var summary =
             $"Policy data synchronized from external policy system. Policy holder: {PolicyHolder}, coverage: {CoverageType}, effective {PolicyEffectiveDate:yyyy-MM-dd} to {PolicyExpirationDate:yyyy-MM-dd}.";
 
         return clearedPolicyWarning
-            ? $"{summary} Previous data integrity warning cleared."
+            ? $"{summary} Previous data integrity warning cleared and the dependency issue was resolved."
             : summary;
     }
 
@@ -269,10 +276,7 @@ public sealed class Claim
             ? "reason unknown."
             : reason.Trim();
 
-        var message = $"Policy data synchronization failed — {normalizedReason}";
-
-        HasDataIntegrityWarning = true;
-        DataIntegrityWarningMessage = message.Length > 500 ? message[..500] : message;
+        UpsertDataIntegrityIssue("policy", $"Policy data synchronization failed — {normalizedReason}");
     }
 
     public string ApplyPaymentData(
@@ -290,15 +294,7 @@ public sealed class Claim
         PaymentSettledAt = settledAt;
         PaymentSyncedAtUtc = EnsurePastOrPresentUtc(syncedAtUtc, nameof(syncedAtUtc));
 
-        var clearedPaymentWarning = HasDataIntegrityWarning &&
-            !string.IsNullOrWhiteSpace(DataIntegrityWarningMessage) &&
-            DataIntegrityWarningMessage.Contains("payment", StringComparison.OrdinalIgnoreCase);
-
-        if (clearedPaymentWarning)
-        {
-            HasDataIntegrityWarning = false;
-            DataIntegrityWarningMessage = null;
-        }
+        var clearedPaymentWarning = ResolveDataIntegrityIssue("payment") || ClearLegacyWarning("payment");
 
         var hasPaymentData = PaymentReference is not null ||
             PaymentStatus is not null ||
@@ -311,7 +307,7 @@ public sealed class Claim
             : "Payment data synchronized — no active payment on file.";
 
         return clearedPaymentWarning
-            ? $"{summary} Previous data integrity warning cleared."
+            ? $"{summary} Previous data integrity warning cleared and the dependency issue was resolved."
             : summary;
     }
 
@@ -321,32 +317,21 @@ public sealed class Claim
             ? "reason unknown."
             : reason.Trim();
 
-        var message = $"Payment data synchronization failed — {normalizedReason}";
-
-        HasDataIntegrityWarning = true;
-        DataIntegrityWarningMessage = message.Length > 500 ? message[..500] : message;
+        UpsertDataIntegrityIssue("payment", $"Payment data synchronization failed — {normalizedReason}");
     }
 
     public string ApplyDocumentSync(DateTime syncedAtUtc, int importedCount)
     {
         DocumentSyncedAtUtc = EnsurePastOrPresentUtc(syncedAtUtc, nameof(syncedAtUtc));
 
-        var clearedDocumentWarning = HasDataIntegrityWarning &&
-            !string.IsNullOrWhiteSpace(DataIntegrityWarningMessage) &&
-            DataIntegrityWarningMessage.Contains("document", StringComparison.OrdinalIgnoreCase);
-
-        if (clearedDocumentWarning)
-        {
-            HasDataIntegrityWarning = false;
-            DataIntegrityWarningMessage = null;
-        }
+        var clearedDocumentWarning = ResolveDataIntegrityIssue("documents") || ClearLegacyWarning("document");
 
         var summary = importedCount > 0
             ? $"Document repository synchronized. {importedCount} document(s) imported from external repository."
             : "Document repository synchronized. No new documents found.";
 
         return clearedDocumentWarning
-            ? $"{summary} Previous data integrity warning cleared."
+            ? $"{summary} Previous data integrity warning cleared and the dependency issue was resolved."
             : summary;
     }
 
@@ -356,10 +341,38 @@ public sealed class Claim
             ? "reason unknown."
             : reason.Trim();
 
-        var message = $"Document data synchronization failed — {normalizedReason}";
+        UpsertDataIntegrityIssue("documents", $"Document data synchronization failed — {normalizedReason}");
+    }
 
-        HasDataIntegrityWarning = true;
-        DataIntegrityWarningMessage = message.Length > 500 ? message[..500] : message;
+    public IReadOnlyList<ClaimDataIntegrityIssue> GetActiveDataIntegrityIssues()
+    {
+        return GetDataIntegrityIssues();
+    }
+
+    public ClaimReconciliationDetails? GetLastReconciliationDetails()
+    {
+        if (string.IsNullOrWhiteSpace(LastReconciliationDetailsJson))
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<ClaimReconciliationDetails>(LastReconciliationDetailsJson);
+    }
+
+    public void RecordReconciliationOutcome(
+        DateTime attemptedAtUtc,
+        IReadOnlyList<string> retriedDependencies,
+        IReadOnlyList<string> recoveredDependencies,
+        string summary)
+    {
+        var details = new ClaimReconciliationDetails(
+            EnsurePastOrPresentUtc(attemptedAtUtc, nameof(attemptedAtUtc)),
+            retriedDependencies.Select(NormalizeDependency).Distinct(StringComparer.Ordinal).OrderBy(static dependency => dependency, StringComparer.Ordinal).ToArray(),
+            recoveredDependencies.Select(NormalizeDependency).Distinct(StringComparer.Ordinal).OrderBy(static dependency => dependency, StringComparer.Ordinal).ToArray(),
+            GetActiveDataIntegrityIssues().Select(issue => issue.Dependency).Distinct(StringComparer.Ordinal).OrderBy(static dependency => dependency, StringComparer.Ordinal).ToArray(),
+            summary.Trim());
+
+        LastReconciliationDetailsJson = JsonSerializer.Serialize(details);
     }
 
     public ClaimDocument AddDocument(
@@ -398,6 +411,133 @@ public sealed class Claim
     private static string FormatPaymentAmount(decimal? amount)
     {
         return amount?.ToString("F2") ?? "N/A";
+    }
+
+    private void UpsertDataIntegrityIssue(string dependency, string message)
+    {
+        var normalizedDependency = NormalizeDependency(dependency);
+        var issues = GetDataIntegrityIssues().ToList();
+        var issue = new ClaimDataIntegrityIssue(normalizedDependency, CapMessage(message));
+        var existingIndex = issues.FindIndex(existing => string.Equals(existing.Dependency, normalizedDependency, StringComparison.Ordinal));
+
+        if (existingIndex >= 0)
+        {
+            issues[existingIndex] = issue;
+        }
+        else
+        {
+            issues.Add(issue);
+        }
+
+        SetDataIntegrityIssues(issues);
+    }
+
+    private bool ResolveDataIntegrityIssue(string dependency)
+    {
+        var normalizedDependency = NormalizeDependency(dependency);
+        var issues = GetDataIntegrityIssues().ToList();
+        var removed = issues.RemoveAll(issue => string.Equals(issue.Dependency, normalizedDependency, StringComparison.Ordinal)) > 0;
+
+        if (removed)
+        {
+            SetDataIntegrityIssues(issues);
+        }
+
+        return removed;
+    }
+
+    private bool ClearLegacyWarning(string dependencyFragment)
+    {
+        if (!HasDataIntegrityWarning || string.IsNullOrWhiteSpace(DataIntegrityWarningMessage))
+        {
+            return false;
+        }
+
+        if (!DataIntegrityWarningMessage.Contains(dependencyFragment, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var issues = GetDataIntegrityIssues();
+        if (issues.Count == 0)
+        {
+            HasDataIntegrityWarning = false;
+            DataIntegrityWarningMessage = null;
+            ActiveDataIntegrityIssuesJson = null;
+            return true;
+        }
+
+        SetDataIntegrityIssues(issues);
+        return true;
+    }
+
+    private IReadOnlyList<ClaimDataIntegrityIssue> GetDataIntegrityIssues()
+    {
+        if (string.IsNullOrWhiteSpace(ActiveDataIntegrityIssuesJson))
+        {
+            return [];
+        }
+
+        return JsonSerializer.Deserialize<List<ClaimDataIntegrityIssue>>(ActiveDataIntegrityIssuesJson) ?? [];
+    }
+
+    private void SetDataIntegrityIssues(IReadOnlyList<ClaimDataIntegrityIssue> issues)
+    {
+        if (issues.Count == 0)
+        {
+            ActiveDataIntegrityIssuesJson = null;
+            HasDataIntegrityWarning = false;
+            DataIntegrityWarningMessage = null;
+            return;
+        }
+
+        var normalizedIssues = issues
+            .Select(issue => new ClaimDataIntegrityIssue(NormalizeDependency(issue.Dependency), CapMessage(issue.Message)))
+            .DistinctBy(issue => issue.Dependency, StringComparer.Ordinal)
+            .OrderBy(issue => issue.Dependency, StringComparer.Ordinal)
+            .ToArray();
+
+        ActiveDataIntegrityIssuesJson = JsonSerializer.Serialize(normalizedIssues);
+        HasDataIntegrityWarning = true;
+        DataIntegrityWarningMessage = BuildDataIntegrityWarningMessage(normalizedIssues);
+    }
+
+    private static string BuildDataIntegrityWarningMessage(IReadOnlyList<ClaimDataIntegrityIssue> issues)
+    {
+        if (issues.Count == 1)
+        {
+            return CapMessage(issues[0].Message);
+        }
+
+        var dependencies = string.Join(", ", issues.Select(issue => GetDependencyLabel(issue.Dependency)));
+        return CapMessage($"Claim data requires reconciliation for: {dependencies}.");
+    }
+
+    private static string NormalizeDependency(string dependency)
+    {
+        var normalized = dependency.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "document" => "documents",
+            _ => normalized,
+        };
+    }
+
+    private static string GetDependencyLabel(string dependency)
+    {
+        return NormalizeDependency(dependency) switch
+        {
+            "policy" => "Policy",
+            "payment" => "Payment",
+            "documents" => "Documents",
+            var value => value,
+        };
+    }
+
+    private static string CapMessage(string message)
+    {
+        var normalized = string.IsNullOrWhiteSpace(message) ? "reason unknown." : message.Trim();
+        return normalized.Length > 500 ? normalized[..500] : normalized;
     }
 
     private static string NormalizeRequired(string value, string paramName)

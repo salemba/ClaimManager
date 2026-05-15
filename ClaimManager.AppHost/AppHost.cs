@@ -1,9 +1,7 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 var postgres = builder.AddPostgres("postgres")
-    .WithImageTag("18")
-    .WithUsername("postgres")
-    .WithPassword("postgres");
+    .WithImageTag("18");
 var postgresdb = postgres.AddDatabase("postgresdb");
 
 var server = builder.AddProject<Projects.ClaimManager_Api>("api")

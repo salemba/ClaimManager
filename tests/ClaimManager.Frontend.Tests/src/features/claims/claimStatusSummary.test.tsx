@@ -27,6 +27,8 @@ const baseClaim: Claim = {
   nextExpectedAction: 'Initial review',
   hasDataIntegrityWarning: false,
   dataIntegrityWarningMessage: null,
+  activeDataIntegrityIssues: [],
+  reconciliation: null,
   policySyncedAtUtc: null,
   paymentSyncedAtUtc: null,
   documentSyncedAtUtc: null,
@@ -159,6 +161,7 @@ describe('ClaimStateSummaryPanel', () => {
       ...baseClaim,
       hasDataIntegrityWarning: true,
       dataIntegrityWarningMessage: 'Payment data synchronization failed — timeout.',
+      activeDataIntegrityIssues: [{ dependency: 'payment', message: 'Payment data synchronization failed — timeout.' }],
       policySyncedAtUtc: '2026-05-14T10:00:00Z',
       paymentSyncedAtUtc: null,
       documentSyncedAtUtc: '2026-05-14T11:00:00Z',
@@ -176,6 +179,23 @@ describe('ClaimStateSummaryPanel', () => {
 
     expect(screen.queryByText(/never synced/)).not.toBeInTheDocument();
     expect(screen.queryByText(/last synced/)).not.toBeInTheDocument();
+  });
+
+  it('renders each active integrity issue when multiple dependencies are unresolved', () => {
+    const warnClaim: Claim = {
+      ...baseClaim,
+      hasDataIntegrityWarning: true,
+      dataIntegrityWarningMessage: 'Claim data requires reconciliation for: Policy, Documents.',
+      activeDataIntegrityIssues: [
+        { dependency: 'policy', message: 'Policy data synchronization failed — timeout.' },
+        { dependency: 'documents', message: 'Document data synchronization failed — repository unavailable.' },
+      ],
+    };
+
+    renderStateSummaryPanel(warnClaim);
+
+    expect(screen.getByText('Policy data synchronization failed — timeout.')).toBeInTheDocument();
+    expect(screen.getByText('Document data synchronization failed — repository unavailable.')).toBeInTheDocument();
   });
 });
 

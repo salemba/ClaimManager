@@ -1,12 +1,18 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
+using System.IO;
 using System.Text;
 using ClaimManager.Application.Claims.Commands;
 using ClaimManager.Application.Claims.Dtos;
 using ClaimManager.Api.Endpoints.Auth;
+using ClaimManager.Infrastructure.Integrations.DocumentRepository;
+using ClaimManager.Infrastructure.Integrations.PaymentSystem;
+using ClaimManager.Infrastructure.Integrations.PolicySystem;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ClaimManager.Api.FunctionalTests;
 
@@ -747,6 +753,120 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
         Assert.Equal(claim2!.Id, pagedResult.Items[0].Id);
     }
 
+    [Fact]
+    public async Task Reconciliation_can_recover_a_previously_failed_policy_dependency_and_preserve_audit_evidence()
+    {
+        var policyClient = new MutablePolicySystemClient();
+
+        using var customFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IPolicySystemClient>();
+                services.RemoveAll<IPaymentSystemClient>();
+                services.RemoveAll<IDocumentRepository>();
+                services.AddSingleton<IPolicySystemClient>(policyClient);
+                services.AddSingleton<IPaymentSystemClient>(new StubPaymentSystemClient());
+                services.AddSingleton<IDocumentRepository>(new StubDocumentRepository());
+            }));
+
+        using var client = customFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        policyClient.SetFailure(new InvalidOperationException("policy timeout"));
+
+        var failedSyncResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/sync-policy", new { });
+        var failedClaim = await failedSyncResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, failedSyncResponse.StatusCode);
+        Assert.NotNull(failedClaim);
+        Assert.True(failedClaim!.HasDataIntegrityWarning);
+        Assert.Contains(failedClaim.ActiveDataIntegrityIssues, issue => issue.Dependency == "policy");
+
+        policyClient.SetPolicy(new PolicySummary(
+            "POL-0200",
+            "Morgan Lee",
+            "Auto",
+            new DateOnly(2025, 1, 1),
+            new DateOnly(2026, 12, 31)));
+
+        var reconcileResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim.Id}/reconcile", new { });
+        var reconciledClaim = await reconcileResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, reconcileResponse.StatusCode);
+        Assert.NotNull(reconciledClaim);
+        Assert.False(reconciledClaim!.HasDataIntegrityWarning);
+        Assert.Empty(reconciledClaim.ActiveDataIntegrityIssues);
+        Assert.NotNull(reconciledClaim.Reconciliation);
+        Assert.Contains("policy", reconciledClaim.Reconciliation!.RetriedDependencies);
+        Assert.Contains("policy", reconciledClaim.Reconciliation.RecoveredDependencies);
+        Assert.Empty(reconciledClaim.Reconciliation.UnresolvedDependencies);
+        Assert.Contains(reconciledClaim.AuditHistory, entry => entry.Action == "policy-sync-failed");
+        Assert.Contains(reconciledClaim.AuditHistory, entry => entry.Action == "claim-reconciled" && entry.Summary.Contains("All claim integration dependencies are now aligned", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Reconciliation_leaves_visible_unresolved_warning_when_a_dependency_still_fails()
+    {
+        using var customFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IPolicySystemClient>();
+                services.RemoveAll<IPaymentSystemClient>();
+                services.RemoveAll<IDocumentRepository>();
+                services.AddSingleton<IPolicySystemClient>(new MutablePolicySystemClient(new PolicySummary(
+                    "POL-0200",
+                    "Morgan Lee",
+                    "Auto",
+                    new DateOnly(2025, 1, 1),
+                    new DateOnly(2026, 12, 31))));
+                services.AddSingleton<IPaymentSystemClient>(new FailingPaymentSystemClient(new InvalidOperationException("gateway timeout")));
+                services.AddSingleton<IDocumentRepository>(new StubDocumentRepository());
+            }));
+
+        using var client = customFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var reconcileResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/reconcile", new { });
+        var reconciledClaim = await reconcileResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.Equal(HttpStatusCode.OK, reconcileResponse.StatusCode);
+        Assert.NotNull(reconciledClaim);
+        Assert.True(reconciledClaim!.HasDataIntegrityWarning);
+        Assert.Contains(reconciledClaim.ActiveDataIntegrityIssues, issue => issue.Dependency == "payment" && issue.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(reconciledClaim.Reconciliation);
+        Assert.Contains("payment", reconciledClaim.Reconciliation!.UnresolvedDependencies);
+        Assert.False(reconciledClaim.Reconciliation.IsFullyReconciled);
+        Assert.Contains(reconciledClaim.AuditHistory, entry => entry.Action == "claim-reconciled" && entry.Summary.Contains("Still unresolved: Payment", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static async Task LoginAsync(HttpClient client)
     {
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new AuthEndpoints.LoginRequest("adjuster@claimmanager.local", "Adjuster!2345"));
@@ -757,6 +877,67 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
 
         client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
         client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrfToken);
+    }
+
+    private sealed class MutablePolicySystemClient(PolicySummary? policy = null) : IPolicySystemClient
+    {
+        private PolicySummary? _policy = policy;
+        private Exception? _failure;
+
+        public Task<PolicySummary?> GetPolicyByNumberAsync(string policyNumber, CancellationToken cancellationToken)
+        {
+            if (_failure is not null)
+            {
+                throw _failure;
+            }
+
+            return Task.FromResult(_policy);
+        }
+
+        public void SetFailure(Exception failure)
+        {
+            _failure = failure;
+        }
+
+        public void SetPolicy(PolicySummary policy)
+        {
+            _failure = null;
+            _policy = policy;
+        }
+    }
+
+    private sealed class StubPaymentSystemClient : IPaymentSystemClient
+    {
+        public Task<PaymentRecord?> GetPaymentStatusByClaimAsync(string claimNumber, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<PaymentRecord?>(null);
+        }
+    }
+
+    private sealed class FailingPaymentSystemClient(Exception failure) : IPaymentSystemClient
+    {
+        public Task<PaymentRecord?> GetPaymentStatusByClaimAsync(string claimNumber, CancellationToken cancellationToken)
+        {
+            throw failure;
+        }
+    }
+
+    private sealed class StubDocumentRepository : IDocumentRepository
+    {
+        public Task<IReadOnlyList<StoredClaimDocument>> GetDocumentListAsync(string claimNumber, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<StoredClaimDocument>>([]);
+        }
+
+        public Task<StoredClaimDocument> SaveAsync(DocumentRepositorySaveRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new StoredClaimDocument(request.FileName, Path.GetExtension(request.FileName), Guid.NewGuid().ToString("N"), request.ContentType, request.Content.LongLength));
+        }
+
+        public Task DeleteAsync(string storageIdentifier, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private static string? GetCookieValue(HttpResponseMessage response, string cookieName)

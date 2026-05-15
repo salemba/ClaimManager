@@ -55,7 +55,7 @@ function IntegrationHealthRow({ entry }: { entry: IntegrationHealthEntry }) {
   return (
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'flex-start' } }}>
       <Stack spacing={0.25} sx={{ minWidth: 160 }}>
-        <Typography variant="body2" fontWeight="medium">
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {boundaryLabel(entry.name)}
         </Typography>
         <Chip

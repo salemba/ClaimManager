@@ -10,6 +10,30 @@ public sealed record ClaimAuditDto(string Action, string Summary, DateTime Perfo
         new(audit.Action, audit.Summary, audit.PerformedAtUtc, audit.PerformedByUserId);
 }
 
+public sealed record ClaimDataIntegrityIssueDto(string Dependency, string Message)
+{
+    public static ClaimDataIntegrityIssueDto FromIssue(ClaimDataIntegrityIssue issue) =>
+        new(issue.Dependency, issue.Message);
+}
+
+public sealed record ClaimReconciliationDto(
+    DateTime AttemptedAtUtc,
+    IReadOnlyList<string> RetriedDependencies,
+    IReadOnlyList<string> RecoveredDependencies,
+    IReadOnlyList<string> UnresolvedDependencies,
+    string Summary,
+    bool IsFullyReconciled)
+{
+    public static ClaimReconciliationDto FromDetails(ClaimReconciliationDetails details) =>
+        new(
+            details.AttemptedAtUtc,
+            details.RetriedDependencies,
+            details.RecoveredDependencies,
+            details.UnresolvedDependencies,
+            details.Summary,
+            details.UnresolvedDependencies.Length == 0);
+}
+
 public sealed record ClaimNoteDto(Guid Id, string Content, DateTime CreatedAtUtc, string CreatedByUserId)
 {
     public static ClaimNoteDto FromNote(ClaimNote note) =>
@@ -116,6 +140,8 @@ public sealed record ClaimDto(
     string? NextExpectedAction,
     bool HasDataIntegrityWarning,
     string? DataIntegrityWarningMessage,
+    IReadOnlyList<ClaimDataIntegrityIssueDto> ActiveDataIntegrityIssues,
+    ClaimReconciliationDto? Reconciliation,
     string? PolicyHolder,
     string? CoverageType,
     DateOnly? PolicyEffectiveDate,
@@ -162,6 +188,8 @@ public sealed record ClaimDto(
             claim.NextExpectedAction,
             claim.HasDataIntegrityWarning,
             claim.DataIntegrityWarningMessage,
+            claim.GetActiveDataIntegrityIssues().Select(ClaimDataIntegrityIssueDto.FromIssue).ToArray(),
+            claim.GetLastReconciliationDetails() is { } details ? ClaimReconciliationDto.FromDetails(details) : null,
             claim.PolicyHolder,
             claim.CoverageType,
             claim.PolicyEffectiveDate,

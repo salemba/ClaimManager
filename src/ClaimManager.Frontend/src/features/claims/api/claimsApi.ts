@@ -95,3 +95,10 @@ export async function syncClaimDocumentData(id: string) {
     body: '{}',
   });
 }
+
+export async function reconcileClaimState(id: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/reconcile`, {
+    method: 'POST',
+    body: '{}',
+  });
+}

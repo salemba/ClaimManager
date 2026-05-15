@@ -3,6 +3,7 @@ using System;
 using ClaimManager.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ClaimManager.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ClaimManagerDbContext))]
-    partial class ClaimManagerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515065809_AddClaimReconciliationMetadata")]
+    partial class AddClaimReconciliationMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
