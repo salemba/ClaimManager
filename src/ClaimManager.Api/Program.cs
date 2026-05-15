@@ -1,6 +1,7 @@
 using ClaimManager.Api.Configuration;
 using ClaimManager.Api.Endpoints.Auth;
 using ClaimManager.Api.Endpoints.Claims;
+using ClaimManager.Api.Endpoints.Dashboard;
 using ClaimManager.Api.Endpoints.Workspace;
 using ClaimManager.Application.Security;
 using ClaimManager.Infrastructure.Integrations.DocumentRepository;
@@ -154,6 +155,7 @@ app.MapDefaultEndpoints();
 app.MapAuthEndpoints();
 app.MapClaimEndpoints();
 app.MapWorkspaceEndpoints();
+app.MapDashboardEndpoints();
 
 app.UseFileServer();
 

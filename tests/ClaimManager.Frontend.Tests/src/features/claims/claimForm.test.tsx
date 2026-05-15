@@ -113,10 +113,13 @@ function renderCreateClaimPage() {
   );
 }
 
-function renderEditClaimPage(claimId = 'claim-1') {
+function renderEditClaimPage(claimId = 'claim-1', routeState?: unknown) {
+  const initialEntry = routeState
+    ? { pathname: `/claims/${claimId}/edit`, state: routeState }
+    : `/claims/${claimId}/edit`;
   return render(
     <AppProviders>
-      <MemoryRouter initialEntries={[`/claims/${claimId}/edit`]}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/claims/:claimId/edit" element={<EditClaimPage />} />
         </Routes>
@@ -478,6 +481,40 @@ describe('Claim form', () => {
 
     expect(await screen.findByText('Claim reconciliation completed and claim context refreshed.')).toBeInTheDocument();
   }, 10000);
+
+  it('shows dashboard origin banner when opened from the supervisor dashboard', async () => {
+    renderEditClaimPage('claim-1', { dashboardOrigin: { label: 'High-risk claims', backTo: '/?panel=high-risk' } });
+
+    expect(await screen.findByText('Opened from Supervisor dashboard: High-risk claims')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute('href', '/?panel=high-risk');
+  });
+
+  it('does not show dashboard origin banner when opened directly', async () => {
+    renderEditClaimPage();
+
+    await screen.findByRole('textbox', { name: 'Claimant name' });
+    expect(screen.queryByText(/Opened from Supervisor dashboard/)).not.toBeInTheDocument();
+  });
+
+  it('keeps data integrity warnings visible in dashboard drill-down context', async () => {
+    mockedGetClaim.mockResolvedValue({
+      ...claimFixture,
+      hasDataIntegrityWarning: true,
+      dataIntegrityWarningMessage: 'Payment data is stale for this claim.',
+      activeDataIntegrityIssues: [
+        {
+          dependency: 'payment',
+          message: 'Payment data is stale for this claim.',
+        },
+      ],
+      paymentSyncedAtUtc: null,
+    });
+
+    renderEditClaimPage('claim-1', { dashboardOrigin: { label: 'High-risk claims', backTo: '/' } });
+
+    expect(await screen.findByText('Opened from Supervisor dashboard: High-risk claims')).toBeInTheDocument();
+    expect(screen.getByText('Payment data is stale for this claim.')).toBeInTheDocument();
+  });
 
   it('shows upload validation errors next to the document control', async () => {
     const user = userEvent.setup();

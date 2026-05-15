@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useLocation, useParams } from 'react-router-dom';
 import { addClaimNote, advanceClaimWorkflow, getClaim, reconcileClaimState, routeClaimForApproval, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../api/claimsApi';
 import { sendClaimNotification, retryClaimNotification } from '../../claimant-communication/api';
 import { ClaimCommunicationsPanel } from '../../claimant-communication/ClaimCommunicationsPanel';
@@ -19,8 +19,16 @@ import { getProblemFieldErrors } from '../../../shared/api/problemDetails';
 import { useClaimFormStore } from '../state/claimFormStore';
 import { PageSurface } from '../../../shared/ui/PageSurface';
 
+type DashboardOrigin = {
+  label: string;
+  backTo?: string;
+};
+
 export function EditClaimPage() {
   const { claimId } = useParams<{ claimId: string }>();
+  const location = useLocation();
+  const dashboardOrigin = (location.state as { dashboardOrigin?: DashboardOrigin } | null)?.dashboardOrigin;
+  const dashboardBackLink = dashboardOrigin?.backTo ?? '/';
   const queryClient = useQueryClient();
   const setErrors = useClaimFormStore((state) => state.setErrors);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -264,6 +272,19 @@ export function EditClaimPage() {
   return (
     <PageSurface>
       <Stack spacing={3}>
+        {dashboardOrigin ? (
+          <Alert
+            severity="info"
+            action={
+              <Button component={RouterLink} to={dashboardBackLink} size="small" color="inherit">
+                Back to dashboard
+              </Button>
+            }
+          >
+            Opened from Supervisor dashboard: {dashboardOrigin.label}
+          </Alert>
+        ) : null}
+
         {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
 
         <ClaimStateSummaryPanel claim={claimQuery.data} />

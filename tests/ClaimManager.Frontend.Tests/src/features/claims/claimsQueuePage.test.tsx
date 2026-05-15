@@ -22,6 +22,9 @@ const mockClaim: ClaimSummary = {
   blockerReason: null,
   ownedByUserId: 'adjuster-1',
   hasDataIntegrityWarning: false,
+  policySyncedAtUtc: null,
+  paymentSyncedAtUtc: null,
+  documentSyncedAtUtc: null,
 };
 
 function makePage(items: ClaimSummary[], overrides?: Partial<ClaimsPage<ClaimSummary>>): ClaimsPage<ClaimSummary> {
@@ -34,7 +37,20 @@ function LocationProbe() {
   return <div data-testid="location-search">{location.search}</div>;
 }
 
-function renderPage(initialEntry = '/claims') {
+function EditLocationProbe() {
+  const location = useLocation();
+  const dashboardOrigin = (location.state as { dashboardOrigin?: { label: string; backTo?: string } } | null)?.dashboardOrigin;
+
+  return (
+    <>
+      <div data-testid="edit-location-pathname">{location.pathname}</div>
+      <div data-testid="edit-origin-label">{dashboardOrigin?.label ?? ''}</div>
+      <div data-testid="edit-origin-back-to">{dashboardOrigin?.backTo ?? ''}</div>
+    </>
+  );
+}
+
+function renderPage(initialEntry: string | { pathname: string; search?: string; state?: unknown } = '/claims') {
   return render(
     <AppProviders>
       <MemoryRouter initialEntries={[initialEntry]}>
@@ -48,6 +64,19 @@ function renderPage(initialEntry = '/claims') {
               </>
             )}
           />
+        </Routes>
+      </MemoryRouter>
+    </AppProviders>,
+  );
+}
+
+function renderQueueAndClaimRoutes(initialEntry: string | { pathname: string; search?: string; state?: unknown }) {
+  return render(
+    <AppProviders>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/claims" element={<ClaimsQueuePage />} />
+          <Route path="/claims/:claimId/edit" element={<EditLocationProbe />} />
         </Routes>
       </MemoryRouter>
     </AppProviders>,
@@ -226,6 +255,47 @@ describe('ClaimsQueuePage', () => {
     });
 
     expect(screen.getByTestId('location-search')).toHaveTextContent('');
+  });
+
+  it('shows dashboard origin banner when opened from a blocker drill-down', async () => {
+    vi.mocked(claimsApiModule.getClaims).mockResolvedValue(makePage([mockClaim]));
+
+    renderPage({
+      pathname: '/claims',
+      state: { dashboardOrigin: { label: 'awaiting-payment-approval', backTo: '/?panel=queue-blockers' } },
+    });
+
+    expect(await screen.findByText('Opened from Supervisor dashboard: awaiting-payment-approval')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute('href', '/?panel=queue-blockers');
+  });
+
+  it('does not show dashboard origin banner when navigated to directly', async () => {
+    vi.mocked(claimsApiModule.getClaims).mockResolvedValue(makePage([mockClaim]));
+
+    renderPage('/claims');
+
+    await screen.findByText('CLM-0001');
+    expect(screen.queryByText(/Opened from Supervisor dashboard/)).not.toBeInTheDocument();
+  });
+
+  it('forwards dashboard origin and filtered queue path when opening a claim from a blocker drill-down', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(claimsApiModule.getClaims).mockResolvedValue(
+      makePage([{ ...mockClaim, blockerType: 'awaiting-payment-approval' }]),
+    );
+
+    renderQueueAndClaimRoutes({
+      pathname: '/claims',
+      search: '?blockerType=awaiting-payment-approval&hasBlocker=true',
+      state: { dashboardOrigin: { label: 'awaiting-payment-approval', backTo: '/?panel=queue-blockers' } },
+    });
+
+    await user.click(await screen.findByRole('button', { name: /Open claim CLM-0001/i }));
+
+    expect(await screen.findByTestId('edit-location-pathname')).toHaveTextContent('/claims/claim-1/edit');
+    expect(screen.getByTestId('edit-origin-label')).toHaveTextContent('awaiting-payment-approval');
+    expect(screen.getByTestId('edit-origin-back-to')).toHaveTextContent('/claims?blockerType=awaiting-payment-approval&hasBlocker=true');
   });
 
   it('renders page summary from API page metadata when the URL page is invalid', async () => {

@@ -14,12 +14,14 @@ internal static class ClaimManagerSeedData
 
     public static readonly Guid AdjusterUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     public static readonly Guid AdminUserId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    public static readonly Guid SupervisorUserId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static readonly Guid InitialClaimId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
     public static readonly DateTime SeededAtUtc = new(2026, 5, 11, 0, 0, 0, DateTimeKind.Utc);
 
     private const string AdjusterPasswordHash = "AQAAAAIAAYagAAAAEMdH9tx3PLIMnRe1anrutoPiJAxbIVu/jECUmicySf7/3Ao5BaeZdL54Nz0vGpUCUQ==";
     private const string AdminPasswordHash = "AQAAAAIAAYagAAAAEH3q/PpAXd3zfeLIL5H8+XXWYNLNN00eEwnyf4ozBrODEhWBARTAeZytSIsO3I1C3Q==";
+    private const string SupervisorPasswordHash = "AQAAAAIAAYagAAAAEOUuFEwF4KN1J99pZOcA/NhSulx4W7w+YJV/mk8bRg6lI2sxfCR7TK2uiq/i95CuMA==";
 
     public static IReadOnlyList<ClaimManagerRole> Roles =>
     [
@@ -32,7 +34,8 @@ internal static class ClaimManagerSeedData
     public static IReadOnlyList<ClaimManagerUser> Users =>
     [
         CreateUser(AdjusterUserId, "adjuster@claimmanager.local", AdjusterPasswordHash),
-        CreateUser(AdminUserId, "admin@claimmanager.local", AdminPasswordHash)
+        CreateUser(AdminUserId, "admin@claimmanager.local", AdminPasswordHash),
+        CreateUser(SupervisorUserId, "supervisor@claimmanager.local", SupervisorPasswordHash)
     ];
 
     public static IReadOnlyList<IdentityUserRole<Guid>> UserRoles =>
@@ -46,6 +49,11 @@ internal static class ClaimManagerSeedData
         {
             UserId = AdminUserId,
             RoleId = AdminRoleId
+        },
+        new()
+        {
+            UserId = SupervisorUserId,
+            RoleId = SupervisorRoleId
         }
     ];
 

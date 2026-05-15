@@ -1,7 +1,7 @@
 import AddIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import BlockIcon from '@mui/icons-material/BlockRounded';
 import { useEffect, useState } from 'react';
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -61,9 +61,17 @@ function hasActiveFilters(searchParams: URLSearchParams) {
   );
 }
 
+type DashboardOrigin = {
+  label: string;
+  backTo?: string;
+};
+
 export function ClaimsQueuePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const dashboardOrigin = (location.state as { dashboardOrigin?: DashboardOrigin } | null)?.dashboardOrigin;
+  const dashboardBackLink = dashboardOrigin?.backTo ?? '/';
 
   const params = buildParams(searchParams);
   const activeFilters = hasActiveFilters(searchParams);
@@ -155,9 +163,35 @@ export function ClaimsQueuePage() {
     });
   }
 
+  function openClaim(claimId: string) {
+    navigate(`/claims/${claimId}/edit`, {
+      state: dashboardOrigin
+        ? {
+            dashboardOrigin: {
+              ...dashboardOrigin,
+              backTo: `${location.pathname}${location.search}`,
+            },
+          }
+        : undefined,
+    });
+  }
+
   return (
     <PageSurface>
       <Stack spacing={3}>
+        {dashboardOrigin ? (
+          <Alert
+            severity="info"
+            action={
+              <Button component={RouterLink} to={dashboardBackLink} size="small" color="inherit">
+                Back to dashboard
+              </Button>
+            }
+          >
+            Opened from Supervisor dashboard: {dashboardOrigin.label}
+          </Alert>
+        ) : null}
+
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
           <div>
             <Typography variant="overline" color="text.secondary">
@@ -265,7 +299,7 @@ export function ClaimsQueuePage() {
                   {(claimsQuery.data?.items ?? []).map((claim) => (
                     <ListItem key={claim.id} disablePadding sx={{ borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
                       <ListItemButton
-                        onClick={() => navigate(`/claims/${claim.id}/edit`)}
+                        onClick={() => openClaim(claim.id)}
                         sx={{ px: 3, py: 2 }}
                         aria-label={`Open claim ${claim.claimNumber}`}
                       >
