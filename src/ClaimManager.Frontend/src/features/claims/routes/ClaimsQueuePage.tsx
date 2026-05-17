@@ -41,6 +41,7 @@ function buildParams(searchParams: URLSearchParams): ClaimsQueryParams {
     search: searchParams.get('search') ?? undefined,
     status: searchParams.get('status') ?? undefined,
     blockerType: searchParams.get('blockerType') ?? undefined,
+    ownedByUserId: searchParams.get('ownedByUserId') ?? undefined,
     hasBlocker:
       searchParams.get('hasBlocker') === 'true'
         ? true
@@ -57,6 +58,7 @@ function hasActiveFilters(searchParams: URLSearchParams) {
     !!searchParams.get('search') ||
     !!searchParams.get('status') ||
     !!searchParams.get('blockerType') ||
+    !!searchParams.get('ownedByUserId') ||
     searchParams.has('hasBlocker')
   );
 }
@@ -157,6 +159,7 @@ export function ClaimsQueuePage() {
       next.delete('search');
       next.delete('status');
       next.delete('blockerType');
+      next.delete('ownedByUserId');
       next.delete('hasBlocker');
       next.delete('page');
       return next;

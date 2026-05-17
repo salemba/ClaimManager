@@ -10,6 +10,16 @@ export interface SupervisorDashboardSignals {
 export interface BlockerGroupSummary {
   blockerType: string;
   count: number;
+  affectedOwnerCount: number;
+  agingClaimCount: number;
+}
+
+export interface WorkloadOwnerSummary {
+  ownerId: string;
+  totalCount: number;
+  stuckCount: number;
+  agingCount: number;
+  blockerCount: number;
 }
 
 export interface DashboardClaimPreview {
@@ -28,6 +38,7 @@ export interface SupervisorDashboard {
   blockerSummary: BlockerGroupSummary[];
   highRiskClaims: DashboardClaimPreview[];
   agingClaims: DashboardClaimPreview[];
+  workloadDistribution: WorkloadOwnerSummary[];
   generatedAtUtc: string;
 }
 

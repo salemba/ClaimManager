@@ -25,14 +25,15 @@ const emptyDashboard: SupervisorDashboardData = {
   blockerSummary: [],
   highRiskClaims: [],
   agingClaims: [],
+  workloadDistribution: [],
   generatedAtUtc: '2026-05-15T10:00:00Z',
 };
 
 const populatedDashboard: SupervisorDashboardData = {
   signals: { stuckCount: 3, agingCount: 2, attentionRequiredCount: 1, approvalPressureCount: 1 },
   blockerSummary: [
-    { blockerType: 'awaiting-payment-approval', count: 1 },
-    { blockerType: 'Pending documentation', count: 2 },
+    { blockerType: 'awaiting-payment-approval', count: 1, affectedOwnerCount: 1, agingClaimCount: 1 },
+    { blockerType: 'Pending documentation', count: 2, affectedOwnerCount: 2, agingClaimCount: 0 },
   ],
   highRiskClaims: [
     {
@@ -58,8 +59,30 @@ const populatedDashboard: SupervisorDashboardData = {
       hasDataIntegrityWarning: false,
     },
   ],
+  workloadDistribution: [
+    { ownerId: 'adjuster-1', totalCount: 3, stuckCount: 2, agingCount: 1, blockerCount: 2 },
+    { ownerId: 'adjuster-2', totalCount: 2, stuckCount: 1, agingCount: 1, blockerCount: 1 },
+  ],
   generatedAtUtc: '2026-05-15T10:00:00Z',
 };
+
+const workloadDashboard = {
+  ...populatedDashboard,
+  blockerSummary: [
+    { blockerType: 'awaiting-payment-approval', count: 2, affectedOwnerCount: 2, agingClaimCount: 1 },
+    { blockerType: 'Pending documentation', count: 1, affectedOwnerCount: 1, agingClaimCount: 0 },
+  ],
+  workloadDistribution: [
+    { ownerId: 'adjuster-1', totalCount: 6, stuckCount: 3, agingCount: 2, blockerCount: 3 },
+    { ownerId: 'adjuster-2', totalCount: 2, stuckCount: 0, agingCount: 1, blockerCount: 0 },
+  ],
+} as SupervisorDashboardData;
+
+const singleOwnerDashboard = {
+  ...emptyDashboard,
+  blockerSummary: [],
+  workloadDistribution: [{ ownerId: 'adjuster-1', totalCount: 4, stuckCount: 2, agingCount: 1, blockerCount: 2 }],
+} as SupervisorDashboardData;
 
 function renderDashboard(options?: { seedData?: SupervisorDashboardData }) {
   const queryClient = new QueryClient({
@@ -252,6 +275,42 @@ describe('SupervisorDashboard', () => {
 
     expect(within(blockerSection).getByRole('button', { name: /awaiting-payment-approval/ })).toBeInTheDocument();
     expect(within(blockerSection).getByRole('button', { name: /Pending documentation/ })).toBeInTheDocument();
+  });
+
+  it('renders the workload distribution section when multiple owners are present', async () => {
+    renderDashboard({ seedData: workloadDashboard });
+
+    const workloadSection = await screen.findByRole('region', { name: 'Workload distribution' });
+    expect(within(workloadSection).getByRole('button', { name: /Open workload for adjuster-1/i })).toBeInTheDocument();
+    expect(within(workloadSection).getByRole('button', { name: /Open workload for adjuster-2/i })).toBeInTheDocument();
+  });
+
+  it('hides the workload distribution section when there is only one owner', async () => {
+    renderDashboard({ seedData: singleOwnerDashboard });
+
+    await screen.findByRole('heading', { name: 'Supervisor dashboard' });
+    expect(screen.queryByRole('region', { name: 'Workload distribution' })).not.toBeInTheDocument();
+  });
+
+  it('navigates a workload owner row to the claims queue with dashboard origin state', async () => {
+    const user = userEvent.setup();
+
+    renderDashboardRoutes({ seedData: workloadDashboard });
+
+    const workloadSection = await screen.findByRole('region', { name: 'Workload distribution' });
+    await user.click(within(workloadSection).getByRole('button', { name: /adjuster-1/i }));
+
+    expect(await screen.findByTestId('destination-pathname')).toHaveTextContent('/claims');
+    expect(screen.getByTestId('destination-search')).toHaveTextContent('?ownedByUserId=adjuster-1');
+    expect(screen.getByTestId('destination-origin-label')).toHaveTextContent('Workload: adjuster-1');
+    expect(screen.getByTestId('destination-origin-back-to')).toHaveTextContent('/');
+  });
+
+  it('shows systemic blocker context in the tooltip for blocker chips with multiple affected owners', async () => {
+    renderDashboard({ seedData: workloadDashboard });
+
+    const blockerSection = await screen.findByRole('region', { name: 'Blocker summary' });
+    expect(within(blockerSection).getByRole('button', { name: /awaiting-payment-approval/ })).toBeInTheDocument();
   });
 
   it('high-risk claim drill-down preserves supervisor origin state into claim detail', async () => {

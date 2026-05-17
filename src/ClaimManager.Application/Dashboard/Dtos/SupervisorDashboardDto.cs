@@ -8,7 +8,16 @@ public sealed record SupervisorDashboardSignals(
 
 public sealed record BlockerGroupSummaryDto(
     string BlockerType,
-    int Count);
+    int Count,
+    int AffectedOwnerCount,
+    int AgingClaimCount);
+
+public sealed record WorkloadOwnerSummaryDto(
+    string OwnerId,
+    int TotalCount,
+    int StuckCount,
+    int AgingCount,
+    int BlockerCount);
 
 public sealed record DashboardClaimPreviewDto(
     Guid Id,
@@ -25,4 +34,5 @@ public sealed record SupervisorDashboardDto(
     IReadOnlyList<BlockerGroupSummaryDto> BlockerSummary,
     IReadOnlyList<DashboardClaimPreviewDto> HighRiskClaims,
     IReadOnlyList<DashboardClaimPreviewDto> AgingClaims,
+    IReadOnlyList<WorkloadOwnerSummaryDto> WorkloadDistribution,
     DateTime GeneratedAtUtc);

@@ -3,10 +3,10 @@ import BlockRounded from '@mui/icons-material/BlockRounded';
 import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
 import HourglassTopRounded from '@mui/icons-material/HourglassTopRounded';
 import PriorityHighRounded from '@mui/icons-material/PriorityHighRounded';
-import { Alert, Box, Chip, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Box, ButtonBase, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { getSupervisorDashboard } from '../api/dashboardApi';
-import type { BlockerGroupSummary, DashboardClaimPreview, SupervisorDashboardSignals } from '../api/dashboardApi';
+import type { BlockerGroupSummary, DashboardClaimPreview, SupervisorDashboardSignals, WorkloadOwnerSummary } from '../api/dashboardApi';
 import { IntegrationHealthPanel } from '../../workspace/IntegrationHealthPanel';
 import { ApiError } from '../../../shared/api/client';
 
@@ -95,23 +95,103 @@ function BlockerSummarySection({ summary }: { summary: BlockerGroupSummary[] }) 
     <Paper component="section" variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }} aria-label="Blocker summary">
       <Stack spacing={2}>
         <Typography variant="h3">Queue blockers</Typography>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+        <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1.5 }}>
           {summary.map((group) => (
-            <Chip
-              key={group.blockerType}
-              label={`${group.blockerType} (${group.count})`}
-              color="error"
-              variant="outlined"
-              size="small"
-              clickable
-              onClick={() =>
-                navigate(
-                  `/claims?blockerType=${encodeURIComponent(group.blockerType)}&hasBlocker=true`,
-                  { state: { dashboardOrigin: { label: group.blockerType, backTo: '/' } } },
-                )
-              }
-            />
+            <Stack key={group.blockerType} spacing={0.25} sx={{ alignItems: 'flex-start' }}>
+              <Tooltip
+                title={
+                  group.affectedOwnerCount > 1 || group.agingClaimCount > 0
+                    ? `${group.blockerType} affects ${group.count} claims${group.affectedOwnerCount > 1 ? ` across ${group.affectedOwnerCount} adjusters` : ''}${group.agingClaimCount > 0 ? '; includes aging claims' : ''}`
+                    : `${group.blockerType} affects ${group.count} claims`
+                }
+              >
+                <Chip
+                  label={`${group.blockerType} (${group.count}${group.affectedOwnerCount > 1 ? ` — ${group.affectedOwnerCount} adjusters` : ''})`}
+                  color="error"
+                  variant="outlined"
+                  size="small"
+                  clickable
+                  onClick={() =>
+                    navigate(
+                      `/claims?blockerType=${encodeURIComponent(group.blockerType)}&hasBlocker=true`,
+                      { state: { dashboardOrigin: { label: group.blockerType, backTo: '/' } } },
+                    )
+                  }
+                />
+              </Tooltip>
+              {group.agingClaimCount > 0 ? (
+                <Typography variant="caption" color="warning.main">
+                  includes aging
+                </Typography>
+              ) : null}
+            </Stack>
           ))}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function WorkloadDistributionSection({ workloadDistribution }: { workloadDistribution: WorkloadOwnerSummary[] }) {
+  const navigate = useNavigate();
+
+  if (workloadDistribution.length <= 1) {
+    return null;
+  }
+
+  return (
+    <Paper component="section" variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }} aria-label="Workload distribution">
+      <Stack spacing={2}>
+        <div>
+          <Typography variant="overline" color="text.secondary">
+            Ownership pressure
+          </Typography>
+          <Typography variant="h3">Workload distribution</Typography>
+        </div>
+
+        <Stack spacing={0.75}>
+          {workloadDistribution.map((owner) => {
+            const stuckColor = owner.stuckCount > 0 ? 'error.main' : 'text.secondary';
+            const agingColor = owner.agingCount > 0 ? 'warning.main' : 'text.secondary';
+
+            return (
+              <ButtonBase
+                key={owner.ownerId}
+                component="div"
+                onClick={() =>
+                  navigate(`/claims?ownedByUserId=${encodeURIComponent(owner.ownerId)}`, {
+                    state: { dashboardOrigin: { label: `Workload: ${owner.ownerId}`, backTo: '/' } },
+                  })
+                }
+                aria-label={`Open workload for ${owner.ownerId}`}
+                sx={{
+                  width: '100%',
+                  textAlign: 'left',
+                  borderRadius: 1,
+                  px: 1.5,
+                  py: 1.25,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr auto', md: 'minmax(140px, 1.2fr) repeat(3, minmax(72px, auto))' },
+                  gap: 1.5,
+                  alignItems: 'center',
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                  {owner.ownerId}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ justifySelf: 'end' }}>
+                  Total {owner.totalCount}
+                </Typography>
+                <Typography variant="body2" sx={{ color: stuckColor, justifySelf: { md: 'end' } }}>
+                  Stuck {owner.stuckCount}
+                </Typography>
+                <Typography variant="body2" sx={{ color: agingColor, justifySelf: { md: 'end' } }}>
+                  Aging {owner.agingCount}
+                </Typography>
+              </ButtonBase>
+            );
+          })}
         </Stack>
       </Stack>
     </Paper>
@@ -237,6 +317,10 @@ export function SupervisorDashboard() {
   const hasLoadedData = data !== undefined;
   const showFatalError = isError && !hasLoadedData && !isForbidden;
   const showCachedDataWarning = isError && hasLoadedData && !isForbidden;
+  const blockerSummary = data?.blockerSummary ?? [];
+  const workloadDistribution = data?.workloadDistribution ?? [];
+  const highRiskClaims = data?.highRiskClaims ?? [];
+  const agingClaims = data?.agingClaims ?? [];
 
   return (
     <Stack spacing={3}>
@@ -269,9 +353,10 @@ export function SupervisorDashboard() {
                 </Alert>
               ) : null}
               <SignalGrid signals={data.signals} />
-              {data.blockerSummary.length > 0 && (
-                <BlockerSummarySection summary={data.blockerSummary} />
+              {blockerSummary.length > 0 && (
+                <BlockerSummarySection summary={blockerSummary} />
               )}
+              <WorkloadDistributionSection workloadDistribution={workloadDistribution} />
               {data.generatedAtUtc && (
                 <Typography variant="caption" color="text.secondary">
                   Data as of {new Date(data.generatedAtUtc).toLocaleString()}
@@ -292,7 +377,7 @@ export function SupervisorDashboard() {
         >
           <ClaimPreviewSection
             ariaLabel="High-risk claims"
-            claims={data.highRiskClaims}
+            claims={highRiskClaims}
             eyebrow="Priority attention"
             title="High-risk claims"
             emptyMessage="No claims currently require immediate supervisor attention."
@@ -300,7 +385,7 @@ export function SupervisorDashboard() {
           />
           <ClaimPreviewSection
             ariaLabel="Aging claims"
-            claims={data.agingClaims}
+            claims={agingClaims}
             eyebrow="Aging pressure"
             title="Aging claims"
             emptyMessage="No claims currently exceed the aging threshold."

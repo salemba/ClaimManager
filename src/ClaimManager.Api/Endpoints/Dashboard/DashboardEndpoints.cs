@@ -84,9 +84,26 @@ public static class DashboardEndpoints
         var blockerSummary = normalizedClaims
             .Where(c => c.BlockerType is not null)
             .GroupBy(c => c.BlockerType!)
-            .Select(g => new BlockerGroupSummaryDto(g.Key, g.Count()))
+            .Select(g => new BlockerGroupSummaryDto(
+                g.Key,
+                g.Count(),
+                g.Select(c => c.OwnedByUserId).Where(ownerId => ownerId is not null).Distinct().Count(),
+                g.Count(c => c.CreatedAtUtc < agingCutoff)))
             .OrderByDescending(g => g.Count)
             .ThenBy(g => g.BlockerType)
+            .ToArray();
+
+        var workloadDistribution = normalizedClaims
+            .GroupBy(c => c.OwnedByUserId ?? "unassigned")
+            .Select(g => new WorkloadOwnerSummaryDto(
+                g.Key,
+                g.Count(),
+                g.Count(c => c.BlockerType is not null),
+                g.Count(c => c.CreatedAtUtc < agingCutoff),
+                g.Count(c => c.BlockerType is not null)))
+            .OrderByDescending(o => o.StuckCount + o.AgingCount)
+            .ThenByDescending(o => o.TotalCount)
+            .ThenBy(o => o.OwnerId)
             .ToArray();
 
         var highRiskClaims = normalizedClaims
@@ -120,7 +137,7 @@ public static class DashboardEndpoints
                 c.HasDataIntegrityWarning))
             .ToArray();
 
-        return TypedResults.Ok(new SupervisorDashboardDto(signals, blockerSummary, highRiskClaims, agingClaims, generatedAt));
+        return TypedResults.Ok(new SupervisorDashboardDto(signals, blockerSummary, highRiskClaims, agingClaims, workloadDistribution, generatedAt));
     }
 
     private static int GetRiskScore(ActiveClaim claim) =>

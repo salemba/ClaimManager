@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using ClaimManager.Api.Endpoints.Auth;
 using ClaimManager.Application.Dashboard.Dtos;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace ClaimManager.Api.FunctionalTests;
@@ -90,6 +91,35 @@ public sealed class SupervisorDashboardEndpointTests(ClaimManagerApiFactory fact
         Assert.NotNull(payload.BlockerSummary);
         Assert.NotNull(payload.HighRiskClaims);
         Assert.NotNull(payload.AgingClaims);
+    }
+
+    [Fact]
+    public async Task Dashboard_response_includes_workload_distribution_and_enriched_blocker_context()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await client.PostAsJsonAsync("/api/auth/login", new AuthEndpoints.LoginRequest("supervisor@claimmanager.local", "Supervisor!2345"));
+
+        var response = await client.GetAsync("/api/supervisor-dashboard");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(document.RootElement.TryGetProperty("workloadDistribution", out var workloadDistribution));
+        Assert.Equal(JsonValueKind.Array, workloadDistribution.ValueKind);
+
+        Assert.True(document.RootElement.TryGetProperty("blockerSummary", out var blockerSummary));
+        Assert.Equal(JsonValueKind.Array, blockerSummary.ValueKind);
+
+        foreach (var blocker in blockerSummary.EnumerateArray())
+        {
+            Assert.True(blocker.TryGetProperty("affectedOwnerCount", out var affectedOwnerCount));
+            Assert.True(blocker.TryGetProperty("agingClaimCount", out var agingClaimCount));
+            Assert.InRange(affectedOwnerCount.GetInt32(), 0, int.MaxValue);
+            Assert.InRange(agingClaimCount.GetInt32(), 0, int.MaxValue);
+        }
     }
 
     [Fact]
