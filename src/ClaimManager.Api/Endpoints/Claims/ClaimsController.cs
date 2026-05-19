@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Npgsql;
 using System.Text.Json;
 using ClaimsPrincipal = System.Security.Claims.ClaimsPrincipal;
@@ -60,6 +61,13 @@ public static class ClaimsController
         return endpoints;
     }
 
+    /// <summary>
+    /// Retrieves a paginated list of claims with optional filtering by search term, status, blocker type, and ownership.
+    /// </summary>
+    /// <param name="query">Query parameters including search, status, blocker type, ownership filter, pagination info</param>
+    /// <param name="dbContext">Database context for claims access</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paginated list of claim summaries</returns>
     private static async Task<Ok<ClaimSummaryPagedResponseDto>> GetClaimsAsync(
         [AsParameters] GetClaimsQueryParams query,
         ClaimManagerDbContext dbContext,
@@ -114,9 +122,17 @@ public static class ClaimsController
         return TypedResults.Ok(new ClaimSummaryPagedResponseDto(items, page, pageSize, totalCount));
     }
 
+    /// <summary>
+    /// Retrieves detailed information for a specific claim, including notes, documents, communications, and audit history.
+    /// </summary>
+    /// <param name="id">The claim ID</param>
+    /// <param name="dbContext">Database context for claims access</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Detailed claim information or 404 if claim not found</returns>
     private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> GetClaimDetailsAsync(
         Guid id,
         ClaimManagerDbContext dbContext,
+        IStringLocalizer<Resource> localizer,
         CancellationToken cancellationToken)
     {
         var claim = await dbContext.Claims
@@ -126,7 +142,7 @@ public static class ClaimsController
             .SingleOrDefaultAsync(existingClaim => existingClaim.Id == id, cancellationToken);
         if (claim is null)
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: localizer["ClaimNotFoundTitle"], detail: localizer["ClaimNotFoundDetail"]);
         }
 
         var auditHistory = await GetAuditHistoryAsync(dbContext, claim.Id, cancellationToken);
@@ -145,6 +161,19 @@ public static class ClaimsController
             communications));
     }
 
+    /// <summary>
+    /// Creates a new claim with initial policy and payment data synchronization.
+    /// Performs automatic synchronization with policy, payment, and document systems during creation.
+    /// </summary>
+    /// <param name="command">Create claim command with claimant and loss information</param>
+    /// <param name="principal">Current user claim principal</param>
+    /// <param name="userManager">User manager for authenticated user lookup</param>
+    /// <param name="dbContext">Database context for persistence</param>
+    /// <param name="policyClient">Policy system integration client</param>
+    /// <param name="paymentClient">Payment system integration client</param>
+    /// <param name="localizer">String localizer for localized messages</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Created claim details or validation/conflict error</returns>
     private static async Task<Results<Created<ClaimDto>, ValidationProblem, ProblemHttpResult>> CreateClaimAsync(
         CreateClaimCommand command,
         ClaimsPrincipal principal,
@@ -152,6 +181,7 @@ public static class ClaimsController
         ClaimManagerDbContext dbContext,
         IPolicySystemClient policyClient,
         IPaymentSystemClient paymentClient,
+        IStringLocalizer<Resource> localizer,
         CancellationToken cancellationToken)
     {
         var validator = new CreateClaimCommandValidator();
@@ -164,7 +194,7 @@ public static class ClaimsController
         var user = await userManager.GetUserAsync(principal);
         if (user is null)
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: localizer["AuthenticationRequiredTitle"], detail: localizer["AuthenticationRequiredDetail"]);
         }
 
         PolicySummary? initialPolicyData = null;
@@ -175,16 +205,12 @@ public static class ClaimsController
             initialPolicyData = await policyClient.GetPolicyByNumberAsync(command.PolicyNumber, cancellationToken);
             if (initialPolicyData is null)
             {
-                initialSyncFailReason = "Policy not found for the recorded policy number.";
+                initialSyncFailReason = localizer["PolicyNotFoundMessage"];
             }
         }
         catch (Exception ex)
         {
-            initialSyncFailReason = $"Policy system was unreachable or returned an unexpected error: {ex.Message}";
-            if (initialSyncFailReason.Length > 200)
-            {
-                initialSyncFailReason = initialSyncFailReason[..200];
-            }
+            initialSyncFailReason = BuildSyncFailureReason(localizer["PolicySystemErrorMessage"], ex.Message);
         }
 
         for (var attempt = 0; attempt < 3; attempt++)
@@ -214,11 +240,7 @@ public static class ClaimsController
             }
             catch (Exception ex)
             {
-                initialPaymentSyncFailReason = $"Payment system was unreachable or returned an unexpected error: {ex.Message}";
-                if (initialPaymentSyncFailReason.Length > 200)
-                {
-                    initialPaymentSyncFailReason = initialPaymentSyncFailReason[..200];
-                }
+                initialPaymentSyncFailReason = BuildSyncFailureReason(localizer["PaymentSystemErrorMessage"], ex.Message);
             }
 
             if (initialPaymentSyncFailReason is not null)
@@ -295,31 +317,44 @@ public static class ClaimsController
 
         return TypedResults.Problem(
             statusCode: StatusCodes.Status409Conflict,
-            title: "Claim creation conflict",
-            detail: "The claim number could not be reserved. Please retry the request.");
+            title: localizer["ClaimCreationConflictTitle"],
+            detail: localizer["ClaimCreationConflictDetail"]);
     }
 
+    /// <summary>
+    /// Synchronizes policy data for a claim from the policy system.
+    /// Updates policy holder information, coverage type, and effective dates.
+    /// </summary>
+    /// <param name="id">The claim ID</param>
+    /// <param name="principal">Current user claim principal</param>
+    /// <param name="userManager">User manager for authenticated user lookup</param>
+    /// <param name="policyClient">Policy system integration client</param>
+    /// <param name="dbContext">Database context for persistence</param>
+    /// <param name="localizer">String localizer for localized messages</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Updated claim details or error if claim not found or sync fails</returns>
     private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> SyncClaimPolicyDataAsync(
         Guid id,
         ClaimsPrincipal principal,
         UserManager<ClaimManagerUser> userManager,
         IPolicySystemClient policyClient,
         ClaimManagerDbContext dbContext,
+        IStringLocalizer<Resource> localizer,
         CancellationToken cancellationToken)
     {
         var user = await userManager.GetUserAsync(principal);
         if (user is null)
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: localizer["AuthenticationRequiredTitle"], detail: localizer["AuthenticationRequiredDetail"]);
         }
 
         var claim = await dbContext.Claims.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (claim is null)
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: localizer["ClaimNotFoundTitle"], detail: localizer["ClaimNotFoundDetail"]);
         }
 
-        await ExecutePolicySyncAsync(claim, user.Id.ToString(), policyClient, dbContext, DateTime.UtcNow, cancellationToken);
+        await ExecutePolicySyncAsync(claim, user.Id.ToString(), policyClient, dbContext, DateTime.UtcNow, localizer, cancellationToken);
 
         try
         {
@@ -329,34 +364,47 @@ public static class ClaimsController
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
-                title: "Concurrency conflict",
-                detail: "The claim has been modified by another user. Please reload the claim and try again.");
+                title: localizer["ConcurrencyConflictTitle"],
+                detail: localizer["ConcurrencyConflictDetail"]);
         }
 
         return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
     }
 
+    /// <summary>
+    /// Synchronizes payment data for a claim from the payment system.
+    /// Updates payment reference, status, amount, currency, and settlement details.
+    /// </summary>
+    /// <param name="id">The claim ID</param>
+    /// <param name="principal">Current user claim principal</param>
+    /// <param name="userManager">User manager for authenticated user lookup</param>
+    /// <param name="paymentClient">Payment system integration client</param>
+    /// <param name="dbContext">Database context for persistence</param>
+    /// <param name="localizer">String localizer for localized messages</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Updated claim details or error if claim not found or sync fails</returns>
     private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> SyncClaimPaymentDataAsync(
         Guid id,
         ClaimsPrincipal principal,
         UserManager<ClaimManagerUser> userManager,
         IPaymentSystemClient paymentClient,
         ClaimManagerDbContext dbContext,
+        IStringLocalizer<Resource> localizer,
         CancellationToken cancellationToken)
     {
         var user = await userManager.GetUserAsync(principal);
         if (user is null)
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: localizer["AuthenticationRequiredTitle"], detail: localizer["AuthenticationRequiredDetail"]);
         }
 
         var claim = await dbContext.Claims.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (claim is null)
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: localizer["ClaimNotFoundTitle"], detail: localizer["ClaimNotFoundDetail"]);
         }
 
-        await ExecutePaymentSyncAsync(claim, user.Id.ToString(), paymentClient, dbContext, DateTime.UtcNow, cancellationToken);
+        await ExecutePaymentSyncAsync(claim, user.Id.ToString(), paymentClient, dbContext, DateTime.UtcNow, localizer, cancellationToken);
 
         try
         {
@@ -366,8 +414,8 @@ public static class ClaimsController
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
-                title: "Concurrency conflict",
-                detail: "The claim has been modified by another user. Please reload the claim and try again.");
+                title: localizer["ConcurrencyConflictTitle"],
+                detail: localizer["ConcurrencyConflictDetail"]);
         }
 
         return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
@@ -1080,6 +1128,7 @@ public static class ClaimsController
         IPolicySystemClient policyClient,
         ClaimManagerDbContext dbContext,
         DateTime syncedAtUtc,
+        IStringLocalizer<Resource> localizer,
         CancellationToken cancellationToken)
     {
         PolicySummary? policyData = null;
@@ -1090,12 +1139,12 @@ public static class ClaimsController
             policyData = await policyClient.GetPolicyByNumberAsync(claim.PolicyNumber, cancellationToken);
             if (policyData is null)
             {
-                syncFailReason = "Policy not found for the recorded policy number.";
+                syncFailReason = localizer["PolicyNotFoundMessage"];
             }
         }
         catch (Exception ex)
         {
-            syncFailReason = BuildSyncFailureReason("Policy system", ex.Message);
+            syncFailReason = BuildSyncFailureReason(localizer["PolicySystemErrorMessage"], ex.Message);
         }
 
         string auditAction;
@@ -1116,7 +1165,7 @@ public static class ClaimsController
         else
         {
             claim.MarkPolicySyncFailed(syncFailReason!);
-            auditSummary = $"Policy data synchronization failed: {syncFailReason}";
+            auditSummary = string.Format(localizer["PolicySyncFailedAuditMessage"], syncFailReason!);
             auditAction = "policy-sync-failed";
         }
 
@@ -1130,6 +1179,7 @@ public static class ClaimsController
         IPaymentSystemClient paymentClient,
         ClaimManagerDbContext dbContext,
         DateTime syncedAtUtc,
+        IStringLocalizer<Resource> localizer,
         CancellationToken cancellationToken)
     {
         PaymentRecord? paymentRecord = null;
@@ -1141,7 +1191,7 @@ public static class ClaimsController
         }
         catch (Exception ex)
         {
-            syncFailReason = BuildSyncFailureReason("Payment system", ex.Message);
+            syncFailReason = BuildSyncFailureReason(localizer["PaymentSystemErrorMessage"], ex.Message);
         }
 
         string auditAction;
@@ -1150,7 +1200,7 @@ public static class ClaimsController
         if (syncFailReason is not null)
         {
             claim.MarkPaymentSyncFailed(syncFailReason);
-            auditSummary = $"Payment data synchronization failed: {syncFailReason}";
+            auditSummary = string.Format(localizer["PaymentSyncFailedAuditMessage"], syncFailReason);
             auditAction = "payment-sync-failed";
         }
         else if (paymentRecord is not null)
@@ -1280,9 +1330,9 @@ public static class ClaimsController
         return string.Join(' ', summaryParts);
     }
 
-    private static string BuildSyncFailureReason(string systemName, string exceptionMessage)
+    private static string BuildSyncFailureReason(string localizedTemplate, string exceptionMessage)
     {
-        var reason = $"{systemName} was unreachable or returned an unexpected error: {exceptionMessage}";
+        var reason = string.Format(localizedTemplate, exceptionMessage);
         return reason.Length > 200 ? reason[..200] : reason;
     }
 

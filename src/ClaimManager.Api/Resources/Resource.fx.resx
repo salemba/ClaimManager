@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Microsoft ResX file format version 2.0 -->
+  <!-- Version number can be incremented each time you convert -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  
+  <!-- Error Messages -->
+  <data name="ClaimNotFoundTitle" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim not found</value>
+    <comment>Error title when claim does not exist</comment>
+  </data>
+  <data name="ClaimNotFoundDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The requested claim could not be found.</value>
+    <comment>Error detail when claim does not exist</comment>
+  </data>
+  <data name="AuthenticationRequiredTitle" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Authentication required</value>
+    <comment>Error title for unauthenticated requests</comment>
+  </data>
+  <data name="AuthenticationRequiredDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The current request does not have a valid authenticated user.</value>
+    <comment>Error detail for unauthenticated requests</comment>
+  </data>
+  <data name="ConcurrencyConflictTitle" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Concurrency conflict</value>
+    <comment>Error title for concurrent modification conflicts</comment>
+  </data>
+  <data name="ConcurrencyConflictDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The claim has been modified by another user. Please reload the claim and try again.</value>
+    <comment>Error detail for concurrent modification conflicts</comment>
+  </data>
+  <data name="InvalidWorkflowTransitionTitle" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Invalid workflow transition</value>
+    <comment>Error title for invalid state transitions</comment>
+  </data>
+  <data name="InvalidWorkflowTransitionDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>{0}</value>
+    <comment>Error detail for invalid state transitions, includes exception message</comment>
+  </data>
+  <data name="ClaimCreationConflictTitle" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim creation conflict</value>
+    <comment>Error title when claim number generation fails</comment>
+  </data>
+  <data name="ClaimCreationConflictDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The claim number could not be reserved. Please retry the request.</value>
+    <comment>Error detail when claim number generation fails</comment>
+  </data>
+  <data name="RetryNotAllowedTitle" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Retry not allowed</value>
+    <comment>Error title when notification retry is not available</comment>
+  </data>
+  <data name="RetryNotAllowedDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Cannot retry a notification in '{0}' state. Only failed notifications can be retried.</value>
+    <comment>Error detail when notification retry is not available</comment>
+  </data>
+  <data name="NotificationNotFoundTitle" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Notification not found</value>
+    <comment>Error title when notification does not exist</comment>
+  </data>
+  <data name="NotificationNotFoundDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The requested notification could not be found for this claim.</value>
+    <comment>Error detail when notification does not exist</comment>
+  </data>
+
+  <!-- Sync Failure Messages -->
+  <data name="PolicyNotFoundMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Policy not found for the recorded policy number.</value>
+    <comment>Message when policy system cannot find the policy</comment>
+  </data>
+  <data name="PolicySystemErrorMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Policy system was unreachable or returned an unexpected error: {0}</value>
+    <comment>Message when policy system is unavailable, includes error message</comment>
+  </data>
+  <data name="PaymentSystemErrorMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Payment system was unreachable or returned an unexpected error: {0}</value>
+    <comment>Message when payment system is unavailable, includes error message</comment>
+  </data>
+  <data name="DocumentSystemErrorMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Document repository was unreachable or returned an unexpected error: {0}</value>
+    <comment>Message when document repository is unavailable, includes error message</comment>
+  </data>
+  <data name="MessagingClientErrorMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Messaging client threw an unexpected error: {0}</value>
+    <comment>Message when messaging client fails, includes error message</comment>
+  </data>
+  <data name="DeliveryFailedWithoutReasonMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Delivery failed without a reason.</value>
+    <comment>Message when message delivery fails without details</comment>
+  </data>
+
+  <!-- Audit Messages -->
+  <data name="ClaimCreatedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim file created with claimant, claim, and loss information.</value>
+    <comment>Audit message when claim is created</comment>
+  </data>
+  <data name="PolicySyncedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>{0}</value>
+    <comment>Audit message when policy sync succeeds, includes sync details</comment>
+  </data>
+  <data name="PolicySyncFailedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Policy data synchronization failed: {0}</value>
+    <comment>Audit message when policy sync fails, includes failure reason</comment>
+  </data>
+  <data name="PaymentSyncFailedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Payment data synchronization failed: {0}</value>
+    <comment>Audit message when payment sync fails, includes failure reason</comment>
+  </data>
+  <data name="DocumentSyncFailedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Document data synchronization failed: {0}</value>
+    <comment>Audit message when document sync fails, includes failure reason</comment>
+  </data>
+  <data name="NoteAddedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim note added: '{0}'.</value>
+    <comment>Audit message when a claim note is added, includes note preview</comment>
+  </data>
+  <data name="DocumentUploadedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Document uploaded: {0} ({1}).</value>
+    <comment>Audit message when document is uploaded, includes filename and type</comment>
+  </data>
+  <data name="WorkflowAdvancedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>{0}</value>
+    <comment>Audit message when workflow advances, includes workflow details</comment>
+  </data>
+  <data name="ClaimRoutedForApprovalAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim routed for payment approval. Rationale: {0}</value>
+    <comment>Audit message when claim is routed for approval, includes rationale</comment>
+  </data>
+  <data name="NotificationSentAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Outbound {0} notification sent via {1} to {2}. Delivery ID: {3}.</value>
+    <comment>Audit message when notification is sent successfully, includes type, channel, recipient, delivery ID</comment>
+  </data>
+  <data name="NotificationFailedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Outbound {0} notification failed via {1} to {2}. Reason: {3}</value>
+    <comment>Audit message when notification delivery fails, includes type, channel, recipient, failure reason</comment>
+  </data>
+  <data name="NotificationRetrySucceededAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Retry of {0} notification succeeded via {1} to {2}. Delivery ID: {3}.</value>
+    <comment>Audit message when notification retry succeeds, includes type, channel, recipient, delivery ID</comment>
+  </data>
+  <data name="NotificationRetryFailedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Retry of {0} notification failed via {1} to {2}. Reason: {3}</value>
+    <comment>Audit message when notification retry fails, includes type, channel, recipient, failure reason</comment>
+  </data>
+  <data name="ClaimReconciledAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>{0}</value>
+    <comment>Audit message when claim is reconciled, includes reconciliation details</comment>
+  </data>
+  <data name="ClaimReviewedNoChangesAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim file reviewed with no material changes.</value>
+    <comment>Audit message when claim is reviewed with no changes</comment>
+  </data>
+  <data name="FieldUpdatedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>{0} updated from '{1}' to '{2}'.</value>
+    <comment>Audit message for field updates, includes field name, old value, new value</comment>
+  </data>
+  <data name="LossDateUpdatedAuditMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Loss date updated from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}.</value>
+    <comment>Audit message for loss date updates, includes old and new dates</comment>
+  </data>
+
+  <!-- Reconciliation Messages -->
+  <data name="ReconciliationStartMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Reconciliation retried {0}.</value>
+    <comment>Start of reconciliation message, includes dependencies being retried</comment>
+  </data>
+  <data name="ReconciliationNoDependenciesRecoveredMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>No previously unresolved dependencies were recovered during this attempt.</value>
+    <comment>Message when no dependencies are recovered during reconciliation</comment>
+  </data>
+  <data name="ReconciliationDependenciesRecoveredMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Recovered: {0}.</value>
+    <comment>Message when dependencies are recovered, includes list of recovered dependencies</comment>
+  </data>
+  <data name="ReconciliationAllResolvedMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>All claim integration dependencies are now aligned.</value>
+    <comment>Message when all dependencies are resolved</comment>
+  </data>
+  <data name="ReconciliationStillUnresolvedMessage" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Still unresolved: {0}.</value>
+    <comment>Message when some dependencies remain unresolved, includes list of unresolved dependencies</comment>
+  </data>
+
+  <!-- Dependency Display Names -->
+  <data name="DependencyNamePolicy" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Policy</value>
+    <comment>Display name for policy dependency</comment>
+  </data>
+  <data name="DependencyNamePayment" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Payment</value>
+    <comment>Display name for payment dependency</comment>
+  </data>
+  <data name="DependencyNameDocuments" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Documents</value>
+    <comment>Display name for documents dependency</comment>
+  </data>
+
+</root>
