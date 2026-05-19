@@ -1,0 +1,49 @@
+Objective
+Refactor the ClaimsController to make it "world-ready" by implementing proper internationalization (i18n), localization (l10n), and comprehensive XML documentation for API discoverability.
+
+Requirements
+1. Extract Messages to Resource Files (.resx)
+Create localized resource files (.resx) for supported languages (e.g., ClaimsController.en-US.resx, ClaimsController.fr-FR.resx, etc.)
+Extract all hard-coded user-facing strings from the controller:
+Error messages (authentication, validation, conflict, not found)
+Audit action descriptions
+Audit summary messages
+Problem titles and details
+Success messages
+Organize resource keys hierarchically by endpoint or category (e.g., Errors_AuthRequired, Audit_ClaimCreated, Validation_InvalidInput)
+Ensure all exception messages and status descriptions are externalized
+2. Implement Dynamic StringLocalizer Injection
+Inject IStringLocalizer<ClaimsController> into the controller via dependency injection
+Replace all hard-coded strings with _localizer["ResourceKey"] calls
+Ensure localization works for:
+HTTP response messages (problem descriptions, titles)
+Audit trail entries (action names and summaries)
+Validation error messages
+System integration error messages
+Support parameter interpolation in resource strings (e.g., "Claim {0} not found")
+3. Generate Structured XML Documentation
+Add comprehensive <summary>, <param>, <returns>, <remarks>, and <exception> XML comments to:
+All public endpoint handler methods
+Helper methods that are critical to functionality
+Record types and data structures used in responses
+Include OpenAPI/Swagger-friendly documentation with:
+Clear operation summaries
+Expected HTTP status codes and their meanings
+Request/response schema descriptions
+Authorization requirements
+Example scenarios or use cases
+Document query parameters, path parameters, and request bodies with their constraints and validations
+Acceptance Criteria
+✅ All user-facing strings are externalized and stored in .resx files
+✅ Controller uses IStringLocalizer<ClaimsController> for all message retrieval
+✅ Endpoints support multiple language contexts based on HTTP Accept-Language headers
+✅ XML documentation is complete for all public endpoints and critical methods
+✅ Documentation includes HTTP status codes, authorization policies, and parameter descriptions
+✅ Code compiles without warnings
+✅ No hard-coded error messages remain in the controller
+Technical Notes
+Use ASP.NET Core's built-in IStringLocalizer and resource management
+Maintain the current endpoint structure and functionality—this is a refactoring, not a redesign
+Ensure backward compatibility with existing API contracts
+Consider logging framework compatibility when externalizing messages
+Keep performance in mind: localization should not add significant overhead
