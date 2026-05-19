@@ -12,12 +12,26 @@ using ClaimManager.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
+var supportedCultures = new[] { "en-US", "fr-FR" };
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultureInfos = supportedCultures.Select(culture => new CultureInfo(culture)).ToArray();
+    options.DefaultRequestCulture = new RequestCulture("en-US");
+    options.SupportedCultures = supportedCultureInfos;
+    options.SupportedUICultures = supportedCultureInfos;
+    options.AddInitialRequestCultureProvider(new AcceptLanguageHeaderRequestCultureProvider());
+});
 
 builder.Services.Configure<PolicySystemOptions>(builder.Configuration.GetSection("PolicySystem"));
 builder.Services.Configure<PaymentSystemOptions>(builder.Configuration.GetSection("PaymentSystem"));
@@ -113,6 +127,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+app.UseRequestLocalization();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages(ApiProblemDetailsExtensions.WriteProblemDetailsAsync);

@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Microsoft ResX File, format version 2.0 -->
+  <!-- French (France) localization -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="3" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="5" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="AuditAction_ClaimCreated" xml:space="preserve">
+    <value>créé</value>
+  </data>
+  <data name="AuditAction_ClaimReconciled" xml:space="preserve">
+    <value>sinistre-concilié</value>
+  </data>
+  <data name="AuditAction_DocumentUploaded" xml:space="preserve">
+    <value>document-téléchargé</value>
+  </data>
+  <data name="AuditAction_DocumentsSynced" xml:space="preserve">
+    <value>documents-synchronisés</value>
+  </data>
+  <data name="AuditAction_DocumentsSyncFailed" xml:space="preserve">
+    <value>sync-documents-échouée</value>
+  </data>
+  <data name="AuditAction_NoteAdded" xml:space="preserve">
+    <value>note-ajoutée</value>
+  </data>
+  <data name="AuditAction_NotificationFailed" xml:space="preserve">
+    <value>notification-échouée</value>
+  </data>
+  <data name="AuditAction_NotificationSent" xml:space="preserve">
+    <value>notification-envoyée</value>
+  </data>
+  <data name="AuditAction_PaymentSynced" xml:space="preserve">
+    <value>paiement-synchronisé</value>
+  </data>
+  <data name="AuditAction_PaymentSyncFailed" xml:space="preserve">
+    <value>sync-paiement-échouée</value>
+  </data>
+  <data name="AuditAction_PolicySynced" xml:space="preserve">
+    <value>politique-synchronisée</value>
+  </data>
+  <data name="AuditAction_PolicySyncFailed" xml:space="preserve">
+    <value>sync-politique-échouée</value>
+  </data>
+  <data name="AuditAction_RoutedForApproval" xml:space="preserve">
+    <value>routé-pour-approbation</value>
+  </data>
+  <data name="AuditAction_Updated" xml:space="preserve">
+    <value>mis à jour</value>
+  </data>
+  <data name="AuditAction_WorkflowAdvanced" xml:space="preserve">
+    <value>flux-avancé</value>
+  </data>
+  <data name="Errors_AuthenticationRequired_Detail" xml:space="preserve">
+    <value>La demande actuelle n'a pas d'utilisateur authentifié valide.</value>
+  </data>
+  <data name="Errors_AuthenticationRequired_Title" xml:space="preserve">
+    <value>Authentification requise</value>
+  </data>
+  <data name="Errors_ClaimCreationConflict_Detail" xml:space="preserve">
+    <value>Le numéro de sinistre n'a pas pu être réservé. Veuillez réessayer.</value>
+  </data>
+  <data name="Errors_ClaimCreationConflict_Title" xml:space="preserve">
+    <value>Conflit de création de sinistre</value>
+  </data>
+  <data name="Errors_ClaimNotFound_Detail" xml:space="preserve">
+    <value>Le sinistre demandé n'a pas pu être trouvé.</value>
+  </data>
+  <data name="Errors_ClaimNotFound_Title" xml:space="preserve">
+    <value>Sinistre non trouvé</value>
+  </data>
+  <data name="Errors_ConcurrencyConflict_Detail" xml:space="preserve">
+    <value>Le sinistre a été modifié par un autre utilisateur. Veuillez recharger le sinistre et réessayer.</value>
+  </data>
+  <data name="Errors_ConcurrencyConflict_Title" xml:space="preserve">
+    <value>Conflit de concurrence</value>
+  </data>
+  <data name="Errors_InvalidWorkflowTransition_Title" xml:space="preserve">
+    <value>Transition de flux de travail invalide</value>
+  </data>
+  <data name="Errors_NotificationNotFound_Detail" xml:space="preserve">
+    <value>La notification demandée n'a pas pu être trouvée pour ce sinistre.</value>
+  </data>
+  <data name="Errors_NotificationNotFound_Title" xml:space="preserve">
+    <value>Notification non trouvée</value>
+  </data>
+  <data name="Errors_NotificationRetryNotAllowed_Detail" xml:space="preserve">
+    <value>Impossible de réessayer une notification dans l'état '{0}'. Seules les notifications échouées peuvent être réessayées.</value>
+  </data>
+  <data name="Errors_NotificationRetryNotAllowed_Title" xml:space="preserve">
+    <value>Nouvelle tentative non autorisée</value>
+  </data>
+  <data name="Dependency_Documents" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="Dependency_Payment" xml:space="preserve">
+    <value>Paiement</value>
+  </data>
+  <data name="Dependency_Policy" xml:space="preserve">
+    <value>Politique</value>
+  </data>
+  <data name="Summary_AuditClaimCreated" xml:space="preserve">
+    <value>Dossier de sinistre créé avec les informations du demandeur, du sinistre et de la perte.</value>
+  </data>
+  <data name="Summary_DocumentAuditSuffix" xml:space="preserve">
+    <value>Document téléchargé : {0} ({1}).</value>
+  </data>
+  <data name="Summary_DocumentSyncFailed" xml:space="preserve">
+    <value>La synchronisation des données de document a échoué : {0}</value>
+  </data>
+  <data name="Summary_DocumentSyncSucceeded" xml:space="preserve">
+    <value>Dossier de sinistre examiné ; {0} document(s) importé(s) à partir du référentiel de documents.</value>
+  </data>
+  <data name="Summary_NoteAuditSuffix" xml:space="preserve">
+    <value>Note de sinistre ajoutée : '{0}'.</value>
+  </data>
+  <data name="Summary_NotificationFailed" xml:space="preserve">
+    <value>Notification sortante {0} échouée via {1} à {2}. Raison : {3}</value>
+  </data>
+  <data name="Summary_NotificationRetryFailed" xml:space="preserve">
+    <value>Nouvelle tentative de notification {0} échouée via {1} à {2}. Raison : {3}</value>
+  </data>
+  <data name="Summary_NotificationRetrySent" xml:space="preserve">
+    <value>Nouvelle tentative de notification {0} réussie via {1} à {2}. ID de livraison : {3}.</value>
+  </data>
+  <data name="Summary_NotificationSent" xml:space="preserve">
+    <value>Notification sortante {0} envoyée via {1} à {2}. ID de livraison : {3}.</value>
+  </data>
+  <data name="Summary_PaymentSyncFailed" xml:space="preserve">
+    <value>La synchronisation des données de paiement a échoué : {0}</value>
+  </data>
+  <data name="Summary_PaymentSyncSucceeded" xml:space="preserve">
+    <value>Données de paiement synchronisées avec le système de paiement.</value>
+  </data>
+  <data name="Summary_PaymentSyncSucceededWithoutData" xml:space="preserve">
+    <value>Données de paiement synchronisées ; aucun enregistrement de paiement trouvé.</value>
+  </data>
+  <data name="Summary_PolicyNotFound" xml:space="preserve">
+    <value>Aucune police d'assurance trouvée pour le numéro de police enregistré.</value>
+  </data>
+  <data name="Summary_PolicySyncFailed" xml:space="preserve">
+    <value>La synchronisation des données de politique a échoué : {0}</value>
+  </data>
+  <data name="Summary_PolicySyncSucceeded" xml:space="preserve">
+    <value>Données de politique synchronisées avec le système de politique.</value>
+  </data>
+  <data name="Summary_ReconciliationNoRecovered" xml:space="preserve">
+    <value>Aucune dépendance précédemment non résolue n'a été récupérée lors de cette tentative.</value>
+  </data>
+  <data name="Summary_ReconciliationRecovered" xml:space="preserve">
+    <value>Récupérées : {0}.</value>
+  </data>
+  <data name="Summary_ReconciliationRetried" xml:space="preserve">
+    <value>Réconciliation réessayée {0}.</value>
+  </data>
+  <data name="Summary_ReconciliationStillUnresolved" xml:space="preserve">
+    <value>Toujours non résolu : {0}.</value>
+  </data>
+  <data name="Summary_ReconciliationUnresolvedFixed" xml:space="preserve">
+    <value>Toutes les dépendances d'intégration du sinistre sont désormais alignées.</value>
+  </data>
+  <data name="Summary_RoutedForApproval" xml:space="preserve">
+    <value>Sinistre routé pour approbation de paiement. Justification : {0}</value>
+  </data>
+  <data name="Summary_SyncFailureReason" xml:space="preserve">
+    <value>{0} était inaccessible ou a retourné une erreur inattendue : {1}</value>
+  </data>
+  <data name="Summary_UpdateNoChanges" xml:space="preserve">
+    <value>Dossier de sinistre examiné sans changements matériels.</value>
+  </data>
+  <data name="Summary_UpdateFieldChanged" xml:space="preserve">
+    <value>{0} mis à jour de '{1}' à '{2}'.</value>
+  </data>
+  <data name="Summary_UpdateLossDateChanged" xml:space="preserve">
+    <value>Date de perte mise à jour de {0:yyyy-MM-dd} à {1:yyyy-MM-dd}.</value>
+  </data>
+  <data name="Update_ClaimantEmail" xml:space="preserve">
+    <value>E-mail du demandeur</value>
+  </data>
+  <data name="Update_ClaimantName" xml:space="preserve">
+    <value>Nom du demandeur</value>
+  </data>
+  <data name="Update_ClaimantPhone" xml:space="preserve">
+    <value>Téléphone du demandeur</value>
+  </data>
+  <data name="Update_LossDescription" xml:space="preserve">
+    <value>Description de la perte</value>
+  </data>
+  <data name="Update_LossType" xml:space="preserve">
+    <value>Type de perte</value>
+  </data>
+  <data name="Update_PolicyNumber" xml:space="preserve">
+    <value>Numéro de police</value>
+  </data>
+</root>

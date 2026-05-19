@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Microsoft ResX File, format version 2.0 -->
+  <!-- To add a localized string, add an <xsd:element> element -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="3" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="5" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="AuditAction_ClaimCreated" xml:space="preserve">
+    <value>created</value>
+  </data>
+  <data name="AuditAction_ClaimReconciled" xml:space="preserve">
+    <value>claim-reconciled</value>
+  </data>
+  <data name="AuditAction_DocumentUploaded" xml:space="preserve">
+    <value>document-uploaded</value>
+  </data>
+  <data name="AuditAction_DocumentsSynced" xml:space="preserve">
+    <value>documents-synced</value>
+  </data>
+  <data name="AuditAction_DocumentsSyncFailed" xml:space="preserve">
+    <value>documents-sync-failed</value>
+  </data>
+  <data name="AuditAction_NoteAdded" xml:space="preserve">
+    <value>note-added</value>
+  </data>
+  <data name="AuditAction_NotificationFailed" xml:space="preserve">
+    <value>notification-failed</value>
+  </data>
+  <data name="AuditAction_NotificationSent" xml:space="preserve">
+    <value>notification-sent</value>
+  </data>
+  <data name="AuditAction_PaymentSynced" xml:space="preserve">
+    <value>payment-synced</value>
+  </data>
+  <data name="AuditAction_PaymentSyncFailed" xml:space="preserve">
+    <value>payment-sync-failed</value>
+  </data>
+  <data name="AuditAction_PolicySynced" xml:space="preserve">
+    <value>policy-synced</value>
+  </data>
+  <data name="AuditAction_PolicySyncFailed" xml:space="preserve">
+    <value>policy-sync-failed</value>
+  </data>
+  <data name="AuditAction_RoutedForApproval" xml:space="preserve">
+    <value>routed-for-approval</value>
+  </data>
+  <data name="AuditAction_Updated" xml:space="preserve">
+    <value>updated</value>
+  </data>
+  <data name="AuditAction_WorkflowAdvanced" xml:space="preserve">
+    <value>workflow-advanced</value>
+  </data>
+  <data name="Errors_AuthenticationRequired_Detail" xml:space="preserve">
+    <value>The current request does not have a valid authenticated user.</value>
+  </data>
+  <data name="Errors_AuthenticationRequired_Title" xml:space="preserve">
+    <value>Authentication required</value>
+  </data>
+  <data name="Errors_ClaimCreationConflict_Detail" xml:space="preserve">
+    <value>The claim number could not be reserved. Please retry the request.</value>
+  </data>
+  <data name="Errors_ClaimCreationConflict_Title" xml:space="preserve">
+    <value>Claim creation conflict</value>
+  </data>
+  <data name="Errors_ClaimNotFound_Detail" xml:space="preserve">
+    <value>The requested claim could not be found.</value>
+  </data>
+  <data name="Errors_ClaimNotFound_Title" xml:space="preserve">
+    <value>Claim not found</value>
+  </data>
+  <data name="Errors_ConcurrencyConflict_Detail" xml:space="preserve">
+    <value>The claim has been modified by another user. Please reload the claim and try again.</value>
+  </data>
+  <data name="Errors_ConcurrencyConflict_Title" xml:space="preserve">
+    <value>Concurrency conflict</value>
+  </data>
+  <data name="Errors_InvalidWorkflowTransition_Title" xml:space="preserve">
+    <value>Invalid workflow transition</value>
+  </data>
+  <data name="Errors_NotificationNotFound_Detail" xml:space="preserve">
+    <value>The requested notification could not be found for this claim.</value>
+  </data>
+  <data name="Errors_NotificationNotFound_Title" xml:space="preserve">
+    <value>Notification not found</value>
+  </data>
+  <data name="Errors_NotificationRetryNotAllowed_Detail" xml:space="preserve">
+    <value>Cannot retry a notification in '{0}' state. Only failed notifications can be retried.</value>
+  </data>
+  <data name="Errors_NotificationRetryNotAllowed_Title" xml:space="preserve">
+    <value>Retry not allowed</value>
+  </data>
+  <data name="Dependency_Documents" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="Dependency_Payment" xml:space="preserve">
+    <value>Payment</value>
+  </data>
+  <data name="Dependency_Policy" xml:space="preserve">
+    <value>Policy</value>
+  </data>
+  <data name="Summary_AuditClaimCreated" xml:space="preserve">
+    <value>Claim file created with claimant, claim, and loss information.</value>
+  </data>
+  <data name="Summary_DocumentAuditSuffix" xml:space="preserve">
+    <value>Document uploaded: {0} ({1}).</value>
+  </data>
+  <data name="Summary_DocumentSyncFailed" xml:space="preserve">
+    <value>Document data synchronization failed: {0}</value>
+  </data>
+  <data name="Summary_DocumentSyncSucceeded" xml:space="preserve">
+    <value>Claim file reviewed; {0} document(s) imported from document repository.</value>
+  </data>
+  <data name="Summary_NoteAuditSuffix" xml:space="preserve">
+    <value>Claim note added: '{0}'.</value>
+  </data>
+  <data name="Summary_NotificationFailed" xml:space="preserve">
+    <value>Outbound {0} notification failed via {1} to {2}. Reason: {3}</value>
+  </data>
+  <data name="Summary_NotificationRetryFailed" xml:space="preserve">
+    <value>Retry of {0} notification failed via {1} to {2}. Reason: {3}</value>
+  </data>
+  <data name="Summary_NotificationRetrySent" xml:space="preserve">
+    <value>Retry of {0} notification succeeded via {1} to {2}. Delivery ID: {3}.</value>
+  </data>
+  <data name="Summary_NotificationSent" xml:space="preserve">
+    <value>Outbound {0} notification sent via {1} to {2}. Delivery ID: {3}.</value>
+  </data>
+  <data name="Summary_PaymentSyncFailed" xml:space="preserve">
+    <value>Payment data synchronization failed: {0}</value>
+  </data>
+  <data name="Summary_PaymentSyncSucceeded" xml:space="preserve">
+    <value>Payment data synchronized with payment system.</value>
+  </data>
+  <data name="Summary_PaymentSyncSucceededWithoutData" xml:space="preserve">
+    <value>Payment data synchronized; no payment records found.</value>
+  </data>
+  <data name="Summary_PolicyNotFound" xml:space="preserve">
+    <value>Policy not found for the recorded policy number.</value>
+  </data>
+  <data name="Summary_PolicySyncFailed" xml:space="preserve">
+    <value>Policy data synchronization failed: {0}</value>
+  </data>
+  <data name="Summary_PolicySyncSucceeded" xml:space="preserve">
+    <value>Policy data synchronized with policy system.</value>
+  </data>
+  <data name="Summary_ReconciliationNoRecovered" xml:space="preserve">
+    <value>No previously unresolved dependencies were recovered during this attempt.</value>
+  </data>
+  <data name="Summary_ReconciliationRecovered" xml:space="preserve">
+    <value>Recovered: {0}.</value>
+  </data>
+  <data name="Summary_ReconciliationRetried" xml:space="preserve">
+    <value>Reconciliation retried {0}.</value>
+  </data>
+  <data name="Summary_ReconciliationStillUnresolved" xml:space="preserve">
+    <value>Still unresolved: {0}.</value>
+  </data>
+  <data name="Summary_ReconciliationUnresolvedFixed" xml:space="preserve">
+    <value>All claim integration dependencies are now aligned.</value>
+  </data>
+  <data name="Summary_RoutedForApproval" xml:space="preserve">
+    <value>Claim routed for payment approval. Rationale: {0}</value>
+  </data>
+  <data name="Summary_SyncFailureReason" xml:space="preserve">
+    <value>{0} was unreachable or returned an unexpected error: {1}</value>
+  </data>
+  <data name="Summary_UpdateNoChanges" xml:space="preserve">
+    <value>Claim file reviewed with no material changes.</value>
+  </data>
+  <data name="Summary_UpdateFieldChanged" xml:space="preserve">
+    <value>{0} updated from '{1}' to '{2}'.</value>
+  </data>
+  <data name="Summary_UpdateLossDateChanged" xml:space="preserve">
+    <value>Loss date updated from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}.</value>
+  </data>
+  <data name="Update_ClaimantEmail" xml:space="preserve">
+    <value>Claimant email</value>
+  </data>
+  <data name="Update_ClaimantName" xml:space="preserve">
+    <value>Claimant name</value>
+  </data>
+  <data name="Update_ClaimantPhone" xml:space="preserve">
+    <value>Claimant phone</value>
+  </data>
+  <data name="Update_LossDescription" xml:space="preserve">
+    <value>Loss description</value>
+  </data>
+  <data name="Update_LossType" xml:space="preserve">
+    <value>Loss type</value>
+  </data>
+  <data name="Update_PolicyNumber" xml:space="preserve">
+    <value>Policy number</value>
+  </data>
+</root>
