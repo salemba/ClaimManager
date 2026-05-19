@@ -1,0 +1,6 @@
+<root>
+  <data name="ErrorMessage" xml:space="preserve">
+    <value>Error occurred while processing your request.</value>
+  </data>
+  <!-- Add other localized strings here -->
+</root>

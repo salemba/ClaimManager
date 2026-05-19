@@ -14,6 +14,11 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System.Globalization;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -111,6 +116,20 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(ClaimManagerPolicies.Admin, policy =>
         policy.RequireRole(ClaimManagerRoles.Admin));
 });
+
+// Add localization services
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
+// Configure RequestLocalizationOptions
+var supportedCultures = new[] { "en", "fr", "es" };
+var localizationOptions = new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture("en"),
+    SupportedCultures = supportedCultures.Select(c => new CultureInfo(c)).ToList(),
+    SupportedUICultures = supportedCultures.Select(c => new CultureInfo(c)).ToList()
+};
+
+app.UseRequestLocalization(localizationOptions);
 
 var app = builder.Build();
 

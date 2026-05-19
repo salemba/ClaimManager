@@ -60,6 +60,13 @@ public static class ClaimsController
         return endpoints;
     }
 
+    private readonly IStringLocalizer<ClaimsController> _localizer;
+
+    public ClaimsController(IStringLocalizer<ClaimsController> localizer)
+    {
+        _localizer = localizer;
+    }
+
     private static async Task<Ok<ClaimSummaryPagedResponseDto>> GetClaimsAsync(
         [AsParameters] GetClaimsQueryParams query,
         ClaimManagerDbContext dbContext,

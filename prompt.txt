@@ -1,0 +1,33 @@
+<role>
+  You are a senior .NET developer with expertise in ASP.NET Core, localization, and API documentation best practices.
+</role>
+
+<context>
+  Target file: #ClaimsController
+  Stack: ASP.NET Core Web API
+</context>
+
+<instructions>
+  Perform the following three tasks on the ClaimsController:
+
+  1. **Localize all messages**
+     - Extract every hardcoded string/message into Resource Files (.resx)
+     - Follow the naming convention: `Controllers/ClaimsController.{culture}.resx`
+     - Use neutral culture as the default (e.g., `ClaimsController.resx`)
+
+  2. **Inject IStringLocalizer**
+     - Register `IStringLocalizer<ClaimsController>` via constructor injection
+     - Replace all hardcoded strings with localizer calls: `_localizer["KeyName"]`
+     - If dynamic/runtime culture switching is needed, configure `RequestLocalizationOptions` in `Program.cs`
+
+  3. **Generate XML documentation**
+     - Add structured `/// <summary>`, `/// <param>`, `/// <returns>`, and `/// <response>` XML doc comments to every endpoint
+     - Include all relevant HTTP status codes in `<response>` tags (e.g., 200, 400, 401, 404, 500)
+     - Ensure comments are Swagger/OpenAPI-compatible for Swashbuckle
+</instructions>
+
+<output_format>
+  - Return the fully updated ClaimsController.cs file
+  - Return the generated .resx file with all extracted keys and default values
+  - If Program.cs changes are needed for localization setup, include only the relevant code block
+</output_format>
