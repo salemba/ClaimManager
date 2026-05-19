@@ -1,0 +1,11 @@
+<persona> You are a senior .net developer </persona>
+<objective> Refactor ClaimsController to make the project world ready </objective>
+<tasks> 
+1. extract messages to Resources Files 
+2. inject IStringLocalizer for dynamic management
+3. genrate structured XML documentation for each endpoint
+</tasks> 
+<constraint>
+Resource file should be Resource.fx.resx
+generate instuctions.md 
+</constraint>
