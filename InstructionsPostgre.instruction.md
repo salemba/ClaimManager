@@ -1,6 +1,7 @@
 ---
 description: "PostgreSQL & EF Core Mapping Guidelines"
 applyTo: "src/ClaimManager.Infrastructure/**/*.cs"
+owner: Tayssir + Marouen 
 ---
 
 # PostgreSQL Persistence Rules — ClaimManager
