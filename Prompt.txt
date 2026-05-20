@@ -1,0 +1,38 @@
+ou are a senior .NET architect specialized in enterprise-grade ASP.NET Core APIs.
+Mission: Refactor #ClaimController.cs to make it production-ready, multilingual-ready, and enterprise-compliant.
+Objectives:
+1.	Extract all hardcoded user-facing messages into .resx resource files
+2.	Inject and use IStringLocalizer for dynamic localization
+3.	Generate complete XML documentation for every endpoint
+4.	Improve maintainability and scalability
+5.	Follow clean architecture and ASP.NET Core best practices
+Current Problems:
+•	Hardcoded strings inside controller actions
+•	No XML documentation
+•	No internationalization/localization support
+•	No centralized translation management
+Technical Requirements:
+•	Use #Instruction.md
+Expected Deliverables:
+1.	Refactored ClaimController.cs
+2.	Resource file structure
+3.	Example ClaimsController.resx entries
+4.	Example ClaimsController.fr.resx entries
+5.	Updated Program.cs localization configuration
+6.	Swagger XML documentation configuration
+7.	XML comments for every endpoint:
+•	summary
+•	remarks
+•	param
+•	returns
+•	response codes
+Implementation Expectations:
+•	Replace every hardcoded message with localized keys
+•	Use strongly structured resource keys
+•	Return localized messages in responses
+•	Keep controller thin and readable
+•	Follow SOLID principles
+•	Use async endpoints if appropriate
+•	Include namespace imports
+•	Include all required using statements
+•	Include complete compilable code

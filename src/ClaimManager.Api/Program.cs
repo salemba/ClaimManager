@@ -12,12 +12,26 @@ using ClaimManager.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// Configure localization services
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[] { "en", "fr" };
+    options.SetDefaultCulture("en")
+        .AddSupportedCultures(supportedCultures)
+        .AddSupportedUICultures(supportedCultures)
+        .RequestCultureProviders.Insert(0, new AcceptLanguageHeaderRequestCultureProvider());
+});
 
 builder.Services.Configure<PolicySystemOptions>(builder.Configuration.GetSection("PolicySystem"));
 builder.Services.Configure<PaymentSystemOptions>(builder.Configuration.GetSection("PaymentSystem"));
@@ -113,6 +127,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Configure localization middleware
+var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>();
+app.UseRequestLocalization(localizationOptions.Value);
 
 app.UseExceptionHandler();
 app.UseStatusCodePages(ApiProblemDetailsExtensions.WriteProblemDetailsAsync);

@@ -1,11 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.8.0.0
+# Visual Studio Version 18
+VisualStudioVersion = 18.6.11806.211 stable
 MinimumVisualStudioVersion = 17.8.0.0
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClaimManager.AppHost", "ClaimManager.AppHost\ClaimManager.AppHost.csproj", "{471EE851-DC17-4CF9-906C-DA6CECAB11D8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+	ProjectSection(SolutionItems) = preProject
+		Instruction.md = Instruction.md
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClaimManager.Api", "src\ClaimManager.Api\ClaimManager.Api.csproj", "{F6F3B38B-7C28-4D84-A07F-35FF18125E24}"
 EndProject
