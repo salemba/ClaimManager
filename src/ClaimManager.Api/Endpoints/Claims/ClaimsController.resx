@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Microsoft ResX File, format version 2.0 -->
+  <!-- To add a localized copy of this file, duplicate it and change the suffix. E.g., ClaimsController.fr.resx -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata" type="xsd:string" minOccurs="0" />
+          <xsd:element name="assembly" type="xsd:string" minOccurs="0" />
+          <xsd:element name="data" type="ComplexType" minOccurs="0" maxOccurs="unbounded" />
+          <xsd:element name="resheader" type="ResHeaderType" minOccurs="0" maxOccurs="unbounded" />
+        </xsd:choice>
+        <xsd:attribute name="version" type="xsd:string" use="required" />
+      </xsd:complexType>
+      <xsd:complexType name="ResHeaderType">
+        <xsd:sequence>
+          <xsd:element name="value" type="xsd:string" minOccurs="0" />
+        </xsd:sequence>
+        <xsd:attribute name="name" type="xsd:string" use="required" />
+      </xsd:complexType>
+      <xsd:complexType name="ComplexType">
+        <xsd:sequence>
+          <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+          <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+        </xsd:sequence>
+        <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="3" />
+        <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="4" />
+        <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="5" />
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  
+  <!-- HTTP Status Error Messages -->
+  <data name="Err_ClaimNotFound" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim not found</value>
+    <comment>HTTP 404 error title when claim does not exist</comment>
+  </data>
+  <data name="Err_ClaimNotFoundDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The requested claim could not be found.</value>
+    <comment>HTTP 404 error detail message</comment>
+  </data>
+  <data name="Err_AuthenticationRequired" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Authentication required</value>
+    <comment>HTTP 401 error title when user is not authenticated</comment>
+  </data>
+  <data name="Err_AuthenticationRequiredDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The current request does not have a valid authenticated user.</value>
+    <comment>HTTP 401 error detail message</comment>
+  </data>
+  <data name="Err_ConcurrencyConflict" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Concurrency conflict</value>
+    <comment>HTTP 409 error title when concurrent modification detected</comment>
+  </data>
+  <data name="Err_ConcurrencyConflictDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The claim has been modified by another user. Please reload the claim and try again.</value>
+    <comment>HTTP 409 error detail message for concurrent modification</comment>
+  </data>
+  <data name="Err_ClaimCreationConflict" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim creation conflict</value>
+    <comment>HTTP 409 error title when claim number cannot be reserved</comment>
+  </data>
+  <data name="Err_ClaimCreationConflictDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The claim number could not be reserved. Please retry the request.</value>
+    <comment>HTTP 409 error detail message for claim creation</comment>
+  </data>
+  <data name="Err_InvalidWorkflowTransition" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Invalid workflow transition</value>
+    <comment>HTTP 409 error title when workflow state change is invalid</comment>
+  </data>
+  <data name="Err_RetryNotAllowed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Retry not allowed</value>
+    <comment>HTTP 409 error title when notification retry is not eligible</comment>
+  </data>
+  <data name="Err_RetryNotAllowedDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Cannot retry a notification in '{0}' state. Only failed notifications can be retried.</value>
+    <comment>HTTP 409 error detail message for notification retry eligibility. {0} is the communication status</comment>
+  </data>
+  <data name="Err_NotificationNotFound" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Notification not found</value>
+    <comment>HTTP 404 error title when notification does not exist</comment>
+  </data>
+  <data name="Err_NotificationNotFoundDetail" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>The requested notification could not be found for this claim.</value>
+    <comment>HTTP 404 error detail message for notification</comment>
+  </data>
+  
+  <!-- Audit and Operation Messages -->
+  <data name="Audit_ClaimCreated" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim file created with claimant, claim, and loss information.</value>
+    <comment>Audit message when claim is initially created</comment>
+  </data>
+  <data name="Audit_ClaimReviewedNoChanges" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim file reviewed with no material changes.</value>
+    <comment>Audit message when claim is updated but no changes detected</comment>
+  </data>
+  <data name="Audit_PolicySyncFailed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Policy data synchronization failed: {0}</value>
+    <comment>Audit message when policy sync fails. {0} is the failure reason</comment>
+  </data>
+  <data name="Audit_PaymentSyncFailed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Payment data synchronization failed: {0}</value>
+    <comment>Audit message when payment sync fails. {0} is the failure reason</comment>
+  </data>
+  <data name="Audit_DocumentSyncFailed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Document data synchronization failed: {0}</value>
+    <comment>Audit message when document sync fails. {0} is the failure reason</comment>
+  </data>
+  <data name="Audit_InitialPolicySyncFailed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Initial policy data sync failed: {0}</value>
+    <comment>Audit message for initial policy sync failure during claim creation. {0} is the failure reason</comment>
+  </data>
+  <data name="Audit_InitialPaymentSyncFailed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Initial payment data sync failed: {0}</value>
+    <comment>Audit message for initial payment sync failure during claim creation. {0} is the failure reason</comment>
+  </data>
+  <data name="Audit_NoteAdded" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim note added: '{0}'.</value>
+    <comment>Audit message when note is added. {0} is preview of note content</comment>
+  </data>
+  <data name="Audit_DocumentUploaded" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Document uploaded: {0} ({1}).</value>
+    <comment>Audit message when document is uploaded. {0} is filename, {1} is file type</comment>
+  </data>
+  <data name="Audit_WorkflowAdvanced" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim workflow advanced.</value>
+    <comment>Audit message when claim workflow progresses to next stage</comment>
+  </data>
+  <data name="Audit_RoutedForApproval" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Claim routed for payment approval. Rationale: {0}</value>
+    <comment>Audit message when claim is routed for approval. {0} is the rationale/reason</comment>
+  </data>
+  <data name="Audit_NotificationSent" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Outbound {0} notification sent via {1} to {2}. Delivery ID: {3}.</value>
+    <comment>Audit message when notification sent successfully. {0}=type, {1}=channel, {2}=recipient, {3}=delivery ID</comment>
+  </data>
+  <data name="Audit_NotificationFailed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Outbound {0} notification failed via {1} to {2}. Reason: {3}</value>
+    <comment>Audit message when notification delivery fails. {0}=type, {1}=channel, {2}=recipient, {3}=failure reason</comment>
+  </data>
+  <data name="Audit_NotificationRetrySucceeded" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Retry of {0} notification succeeded via {1} to {2}. Delivery ID: {3}.</value>
+    <comment>Audit message when notification retry succeeds. {0}=type, {1}=channel, {2}=recipient, {3}=delivery ID</comment>
+  </data>
+  <data name="Audit_NotificationRetryFailed" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Retry of {0} notification failed via {1} to {2}. Reason: {3}</value>
+    <comment>Audit message when notification retry fails. {0}=type, {1}=channel, {2}=recipient, {3}=failure reason</comment>
+  </data>
+  <data name="Audit_ReconciliationRetried" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Reconciliation retried {0}.</value>
+    <comment>Audit message first line in reconciliation summary. {0} is comma-separated list of retried dependencies</comment>
+  </data>
+  <data name="Audit_ReconciliationNoRecovery" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>No previously unresolved dependencies were recovered during this attempt.</value>
+    <comment>Audit message when reconciliation finds no recovered dependencies</comment>
+  </data>
+  <data name="Audit_ReconciliationRecovered" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Recovered: {0}.</value>
+    <comment>Audit message for recovered dependencies in reconciliation. {0} is comma-separated list of recovered dependencies</comment>
+  </data>
+  <data name="Audit_ReconciliationAllResolved" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>All claim integration dependencies are now aligned.</value>
+    <comment>Audit message when all dependencies are resolved after reconciliation</comment>
+  </data>
+  <data name="Audit_ReconciliationStillUnresolved" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Still unresolved: {0}.</value>
+    <comment>Audit message for still-unresolved dependencies. {0} is comma-separated list of unresolved dependencies</comment>
+  </data>
+  
+  <!-- System Integration Error Messages -->
+  <data name="Sync_PolicySystemError" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Policy system was unreachable or returned an unexpected error: {0}</value>
+    <comment>Error message when policy system fails. {0} is truncated exception message</comment>
+  </data>
+  <data name="Sync_PaymentSystemError" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Payment system was unreachable or returned an unexpected error: {0}</value>
+    <comment>Error message when payment system fails. {0} is truncated exception message</comment>
+  </data>
+  <data name="Sync_PolicyNotFound" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Policy not found for the recorded policy number.</value>
+    <comment>Error message when policy lookup returns no results</comment>
+  </data>
+  <data name="Sync_MessagingClientError" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Messaging client threw an unexpected error: {0}</value>
+    <comment>Error message when messaging system fails. {0} is exception message</comment>
+  </data>
+  <data name="Sync_DeliveryFailedNoReason" type="System.Resources.ResXString, System.Windows.Forms">
+    <value>Delivery failed without a reason.</value>
+    <comment>Fallback error message when delivery fails with no specific reason provided</comment>
+  </data>
+</root>
