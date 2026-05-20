@@ -402,12 +402,31 @@ All tests follow the Given / When / Then structure. Tests are organized by layer
 
 ---
 
-## Appendix — Open Questions for Refinement
+## Appendix — Architectural Decisions (Resolved)
 
-The following decisions are intentionally deferred to the team and product owner:
+The following decisions have been confirmed by the team and product owner.
 
-1. **Unsuspend / Lift Suspension** — This story does not include a path back from `Suspended`. Should `Suspended` be terminal for this iteration, or should a `LiftSuspension` command be planned in the same sprint?
-2. **Approved → Suspended transition** — Suspending an already-approved claim may have financial and compliance implications. Should this transition require an additional confirmation flag or escalated authorization level?
-3. **Payment gateway cancellation** — Is the `PaymentGatewayRecallHandler` in scope for this story, or is it a follow-on story? The domain event already carries the data needed; it is a question of when the handler is implemented.
-4. **Character limit on `FraudSuspicionReason`** — The 1 000-character limit is a suggestion. The product owner should confirm this value based on operational requirements.
-5. **Notification recipients** — Who should receive the suspension notification? Only the submitting manager, or also adjusters, supervisors, and the claimant?
+| # | Decision | Resolution |
+|---|---|---|
+| 1 | Unsuspend / Lift Suspension | **In scope.** A `LiftSuspensionCommand` must be planned and delivered in the same sprint. `Suspended` is not terminal. |
+| 2 | `Approved → Suspended` transition | **Requires escalated authorization.** This transition must be gated behind an additional confirmation flag on the command and a dedicated elevated permission (distinct from the standard `SuspendClaim` permission). |
+| 3 | Payment gateway cancellation | **In scope.** The `PaymentGatewayRecallHandler` must be implemented as part of this story, not deferred. |
+| 4 | Character limit on `FraudSuspicionReason` | **Confirmed at 1 000 characters.** This value is now a hard domain constraint, not a suggestion. |
+| 5 | Notification recipients | **All stakeholders.** The suspension notification must be sent to the submitting manager, all assigned adjusters, supervisors, and the claimant. |
+
+### Impact of Resolutions on the Plan
+
+**Decision 1 — `LiftSuspensionCommand`:**
+A `LiftSuspension` command must be added to the same sprint backlog. At the domain level, the `Claim` aggregate must expose a `LiftSuspension()` method that mirrors the `Suspend()` guards in reverse: it must only be callable from the `Suspended` state, require a reinstatement reason, and transition all `Blocked` payments back to `Pending`. A `ClaimSuspensionLiftedDomainEvent` must be raised to allow the payment sync pipeline to resume processing those payments.
+
+**Decision 2 — Escalated authorization for `Approved → Suspended`:**
+The `SuspendClaimCommand` must include an optional `EscalatedConfirmation` boolean flag. The handler's authorization step must branch: if the loaded claim is in `Approved` status, it must verify that the actor holds the elevated `SuspendApprovedClaim` permission **and** that `EscalatedConfirmation` is explicitly set to `true`. If either condition is missing, the command is rejected before the domain method is invoked. This logic lives in the application layer, not the domain, as it is an authorization concern rather than a business invariant.
+
+**Decision 3 — `PaymentGatewayRecallHandler` is in scope:**
+This handler must be implemented and registered as a subscriber to `ClaimSuspendedDomainEvent` within this sprint. It must use the `BlockedPaymentIds` from the event to issue cancellation requests to the external payment gateway for any payment that had already been dispatched but not yet settled. The handler must be idempotent: a recall request for a payment already cancelled at the gateway must log a warning and succeed rather than fault. Retry and dead-letter policies for gateway communication failures must be defined with the infrastructure team.
+
+**Decision 4 — 1 000-character limit is now a hard constraint:**
+The limit is no longer advisory. It must be enforced at three levels: the FluentValidation rule on the command (application layer), a domain guard inside `Claim.Suspend()` (domain layer), and a database column constraint on the persistence model (infrastructure layer). All three must be consistent.
+
+**Decision 5 — Notification recipients are all stakeholders:**
+The `NotifyClaimsManagerOnSuspensionHandler` must be renamed to `NotifyStakeholdersOnSuspensionHandler` to reflect its expanded scope. It must resolve and notify: the submitting manager (from `SuspendedByUserId`), all adjusters currently assigned to the claim, all supervisors in the claim's organizational unit, and the claimant (via their registered contact channel — email or in-app). Notification content must include the claim reference, the suspension timestamp, and a redacted version of the fraud suspicion reason appropriate for each recipient type (full reason for internal staff; a generic "under review" message for the claimant).
