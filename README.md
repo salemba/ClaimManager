@@ -29,7 +29,7 @@ Before the first run (or after pulling new migrations), apply the database schem
 **Windows (PowerShell):**
 ```powershell
 # Get the connection string from the Aspire dashboard → postgres resource → Connection string
-.\scripts\apply-migrations.ps1 -ConnectionString "Host=localhost;Port=XXXXX;Database=claimmanager;Username=postgres;Password=postgres"
+.\scripts\apply-migrations.ps1 -ConnectionString "Host=localhost;Port=61600;Username=postgres;Password=*zWcm0qK!-S9kZ6!43dEt);Database=postgresdb"
 ```
 
 **macOS / Linux:**
