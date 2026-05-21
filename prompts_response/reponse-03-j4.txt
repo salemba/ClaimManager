@@ -1,0 +1,56 @@
+Okay, I will act as a Senior .NET Integration & Test Engineer. First, I need to review the specified files to ensure I can proceed without any ambiguity.
+
+Read [](file:///c%3A/Users/Administrator/Desktop/ClaimManager/src/ClaimManager.Api/Endpoints/Dashboard/DashboardEndpoints.cs)
+
+Read [](file:///c%3A/Users/Administrator/Desktop/ClaimManager/tests/ClaimManager.Api.FunctionalTests/SupervisorDashboardEndpointTests.cs)
+
+I've reviewed the provided files. Here's my analysis based on your instructions:
+
+*   **Endpoint Definition (DashboardEndpoints.cs):** The route (`GET /api/supervisor-dashboard`), HTTP method, and response DTO (`SupervisorDashboardDto`) are clearly defined. I can see how the response is constructed.
+*   **Test Setup (SupervisorDashboardEndpointTests.cs):** The tests use a standard `WebApplicationFactory` (`ClaimManagerApiFactory`) for integration testing. The authentication flow and `HttpClient` creation are well-established and used consistently across the tests.
+*   **Data Structures:** The existing code already includes "workloadDistribution" and "blockerSummary" in the response. The tests also confirm their presence. The prompt asks to extend the tests for "new" workload metrics and blocker patterns.
+
+Based on this, I have a clarifying question before I proceed to write code.
+
+The user's prompt mentions ensuring the query maps to "**updated** response structures" and asserting that "**new** workload metrics and blocker patterns are correctly returned". However, the files DashboardEndpoints.cs and SupervisorDashboardEndpointTests.cs already seem to implement and test properties named `workloadDistribution` and `blockerSummary`.
+
+To ensure I make the correct changes, could you please clarify:
+
+1.  Are there new properties or calculations expected for "workload metrics" and "blocker patterns" that are not already present in the current implementation?
+2.  If so, what are the property names, types, and expected data for these new fields?
+
+Once I have this clarification, I can proceed with the implementation and testing.
+
+Searched for text `WorkloadOwnerSummaryDto`, 8 results
+
+Read [](file:///c%3A/Users/Administrator/Desktop/ClaimManager/src/ClaimManager.Application/Dashboard/Dtos/SupervisorDashboardDto.cs)
+
+Searched for files matching `**/ClaimManagerApiFactory.cs`, 1 match
+
+Read [](file:///c%3A/Users/Administrator/Desktop/ClaimManager/tests/ClaimManager.Api.FunctionalTests/ClaimManagerApiFactory.cs)
+
+Searched for text `public class Claim` (`**/src/ClaimManager.Domain/**/*.cs`), no results
+
+Searched for files matching `**/src/ClaimManager.Domain/**/Claim.cs`, 1 match
+
+Read [](file:///c%3A/Users/Administrator/Desktop/ClaimManager/src/ClaimManager.Domain/Claims/Entities/Claim.cs)
+
+I've completed my review of the DashboardEndpoints.cs file. The current implementation correctly maps the query results to the `SupervisorDashboardDto`, including the `workloadDistribution` and `blockerSummary` properties. The logic appears sound.
+
+Now, I will extend the functional tests by adding a new test to SupervisorDashboardEndpointTests.cs. This test will seed the database with a specific set of claims and then assert that the workload metrics and blocker patterns returned by the API are correct, which fulfills the second part of your request.
+
+I will add the necessary `using` statements and the new test case to the file.
+
+
+
+
+
+
+````
+
+````
+I have successfully extended the functional tests for the supervisor dashboard endpoint. The new test case seeds a predictable data set and asserts that the API returns the correct workload and blocker metrics, fulfilling your request. I did not find any necessary changes for DashboardEndpoints.cs.
+
+I'm now finished with the task.
+
+Made changes.

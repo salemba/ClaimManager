@@ -3,7 +3,11 @@ using System.Net.Http.Json;
 using ClaimManager.Api.Endpoints.Auth;
 using ClaimManager.Application.Dashboard.Dtos;
 using System.Text.Json;
+using ClaimManager.Domain.Claims;
+using ClaimManager.Infrastructure.Persistence;
+using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ClaimManager.Api.FunctionalTests;
 
@@ -162,5 +166,94 @@ public sealed class SupervisorDashboardEndpointTests(ClaimManagerApiFactory fact
         Assert.NotNull(payload);
         Assert.All(payload!.HighRiskClaims, claim =>
             Assert.True(claim.HasDataIntegrityWarning || !string.IsNullOrWhiteSpace(claim.BlockerType)));
+    }
+
+    [Fact]
+    public async Task Supervisor_dashboard_returns_correct_workload_and_blocker_summaries()
+    {
+        // Arrange
+        await using var scope = factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ClaimManagerDbContext>();
+
+        var now = DateTime.UtcNow;
+        var agingCutoff = now.AddDays(-20);
+
+        var user1 = "user1@claimmanager.local";
+        var user2 = "user2@claimmanager.local";
+
+        var claims = new List<Claim>
+        {
+            Claim.Create("C-001", "Claimant 1", "e1@ma.il", "123", "P-001", now.AddDays(-1), "type", "desc", user1, now.AddDays(-1)),
+            Claim.Create("C-002", "Claimant 2", "e2@ma.il", "123", "P-002", agingCutoff, "type", "desc", user1, agingCutoff),
+            Claim.Create("C-003", "Claimant 3", "e3@ma.il", "123", "P-003", now.AddDays(-2), "type", "desc", user2, now.AddDays(-2)),
+            Claim.Create("C-004", "Claimant 4", "e4@ma.il", "123", "P-004", now.AddDays(-3), "type", "desc", user2, now.AddDays(-3)),
+            Claim.Create("C-005", "Claimant 5", "e5@ma.il", "123", "P-005", agingCutoff, "type", "desc", user2, agingCutoff),
+            Claim.Create("C-006", "Claimant 6", "e6@ma.il", "123", "P-006", now.AddDays(-5), "type", "desc", "creator", now.AddDays(-5)),
+            Claim.Create("C-007", "Claimant 7", "e7@ma.il", "123", "P-007", now, "type", "desc", "creator", now)
+        };
+
+        // User1: 2 total, 1 stuck, 1 aging
+        claims[0].OwnedByUserId = user1;
+        claims[1].OwnedByUserId = user1;
+        claims[1].BlockerType = "blocker-A";
+
+        // User2: 3 total, 2 stuck, 1 aging
+        claims[2].OwnedByUserId = user2;
+        claims[3].OwnedByUserId = user2;
+        claims[3].BlockerType = "blocker-B";
+        claims[4].OwnedByUserId = user2;
+        claims[4].BlockerType = "blocker-A";
+
+        // Unassigned: 1 total, 1 stuck, not aging
+        claims[5].OwnedByUserId = null;
+        claims[5].BlockerType = "blocker-B";
+
+        // Terminal status, should be ignored
+        claims[6].Status = "closed";
+
+        await dbContext.Claims.AddRangeAsync(claims);
+        await dbContext.SaveChangesAsync();
+
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await client.PostAsJsonAsync("/api/auth/login", new AuthEndpoints.LoginRequest("supervisor@claimmanager.local", "Supervisor!2345"));
+
+        // Act
+        var response = await client.GetAsync("/api/supervisor-dashboard");
+        var payload = await response.Content.ReadFromJsonAsync<SupervisorDashboardDto>();
+
+        // Assert
+        payload.Should().NotBeNull();
+
+        payload!.WorkloadDistribution.Should().HaveCount(3);
+
+        var user1Workload = payload.WorkloadDistribution.Single(w => w.OwnerId == user1);
+        user1Workload.TotalCount.Should().Be(2);
+        user1Workload.StuckCount.Should().Be(1);
+        user1Workload.AgingCount.Should().Be(1);
+        user1Workload.BlockerCount.Should().Be(1);
+
+        var user2Workload = payload.WorkloadDistribution.Single(w => w.OwnerId == user2);
+        user2Workload.TotalCount.Should().Be(3);
+        user2Workload.StuckCount.Should().Be(2);
+        user2Workload.AgingCount.Should().Be(1);
+        user2Workload.BlockerCount.Should().Be(2);
+
+        var unassignedWorkload = payload.WorkloadDistribution.Single(w => w.OwnerId == "unassigned");
+        unassignedWorkload.TotalCount.Should().Be(1);
+        unassignedWorkload.StuckCount.Should().Be(1);
+        unassignedWorkload.AgingCount.Should().Be(0);
+        unassignedWorkload.BlockerCount.Should().Be(1);
+
+        payload.BlockerSummary.Should().HaveCount(2);
+
+        var blockerA = payload.BlockerSummary.Single(b => b.BlockerType == "blocker-A");
+        blockerA.Count.Should().Be(2);
+        blockerA.AffectedOwnerCount.Should().Be(2);
+        blockerA.AgingClaimCount.Should().Be(2);
+
+        var blockerB = payload.BlockerSummary.Single(b => b.BlockerType == "blocker-B");
+        blockerB.Count.Should().Be(2);
+        blockerB.AffectedOwnerCount.Should().Be(1);
+        blockerB.AgingClaimCount.Should().Be(0);
     }
 }
