@@ -25,14 +25,15 @@ const emptyDashboard: SupervisorDashboardData = {
   blockerSummary: [],
   highRiskClaims: [],
   agingClaims: [],
+  workloadDistribution: [],
   generatedAtUtc: '2026-05-15T10:00:00Z',
 };
 
 const populatedDashboard: SupervisorDashboardData = {
   signals: { stuckCount: 3, agingCount: 2, attentionRequiredCount: 1, approvalPressureCount: 1 },
   blockerSummary: [
-    { blockerType: 'awaiting-payment-approval', count: 1 },
-    { blockerType: 'Pending documentation', count: 2 },
+    { blockerType: 'awaiting-payment-approval', count: 1, affectedOwnerCount: 1, agingClaimCount: 1 },
+    { blockerType: 'Pending documentation', count: 2, affectedOwnerCount: 2, agingClaimCount: 0 },
   ],
   highRiskClaims: [
     {
@@ -57,6 +58,10 @@ const populatedDashboard: SupervisorDashboardData = {
       daysSinceCreated: 16,
       hasDataIntegrityWarning: false,
     },
+  ],
+  workloadDistribution: [
+    { ownerId: 'adjuster-1', totalCount: 2, stuckCount: 1, agingCount: 1, blockerCount: 1 },
+    { ownerId: 'adjuster-2', totalCount: 1, stuckCount: 0, agingCount: 0, blockerCount: 0 },
   ],
   generatedAtUtc: '2026-05-15T10:00:00Z',
 };
@@ -197,6 +202,38 @@ describe('SupervisorDashboard', () => {
     renderDashboard({ seedData: populatedDashboard });
 
     expect(await screen.findByText('Data integrity issue')).toBeInTheDocument();
+  });
+
+  it('renders workload distribution section when multiple owners present', async () => {
+    renderDashboard({ seedData: populatedDashboard });
+
+    expect(await screen.findByRole('region', { name: 'Workload distribution' })).toBeInTheDocument();
+    expect(screen.getByText('adjuster-1')).toBeInTheDocument();
+    expect(screen.getByText('adjuster-2')).toBeInTheDocument();
+  });
+
+  it('hides workload distribution section when one or zero owners present', async () => {
+    const singleOwnerDashboard = {
+      ...populatedDashboard,
+      workloadDistribution: [{ ownerId: 'adjuster-1', totalCount: 1, stuckCount: 0, agingCount: 0, blockerCount: 0 }],
+    };
+    renderDashboard({ seedData: singleOwnerDashboard });
+
+    await screen.findByRole('heading', { name: 'Supervisor dashboard' });
+    expect(screen.queryByRole('region', { name: 'Workload distribution' })).not.toBeInTheDocument();
+  });
+
+  it('shows adjusters text in blocker chip tooltip when affectedOwnerCount > 1', async () => {
+    renderDashboard({ seedData: populatedDashboard });
+
+    // The Tooltip title is set on the element, so we can find it by title
+    expect(await screen.findByLabelText('Pending documentation (2) — 2 adjusters')).toBeInTheDocument();
+  });
+
+  it('shows aging claim warning in blocker chip when agingClaimCount > 0', async () => {
+    renderDashboard({ seedData: populatedDashboard });
+
+    expect(await screen.findByText('includes aging')).toBeInTheDocument();
   });
 
   it('shows access-denied message for non-supervisor users (403)', async () => {
