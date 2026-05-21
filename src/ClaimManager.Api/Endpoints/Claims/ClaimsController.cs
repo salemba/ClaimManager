@@ -24,6 +24,7 @@ using Npgsql;
 using System.Text.Json;
 using ClaimsPrincipal = System.Security.Claims.ClaimsPrincipal;
 using ClaimEntity = ClaimManager.Domain.Claims.Claim;
+using ClaimService = ClaimManager.Application.Services.ClaimService;
 
 public sealed record GetClaimsQueryParams(
     string? Search = null,
@@ -33,6 +34,8 @@ public sealed record GetClaimsQueryParams(
     string? OwnedByUserId = null,
     int Page = 1,
     int PageSize = 20);
+
+public sealed record ForceReassignClaimRequest(string NewAdjusterId);
 
 public static class ClaimsController
 {
@@ -56,6 +59,8 @@ public static class ClaimsController
         group.MapPost("/{id:guid}/reconcile", ReconcileClaimStateAsync);
         group.MapPost("/{id:guid}/notifications", SendClaimNotificationAsync);
         group.MapPost("/{id:guid}/notifications/{notificationId:guid}/retry", RetryClaimNotificationAsync);
+        group.MapPut("/{id:guid}/force-reassign", ForceReassignClaimAsync)
+            .RequireAuthorization("SupervisorPolicy"); // Assuming a supervisor policy exists
 
         return endpoints;
     }
@@ -112,6 +117,39 @@ public static class ClaimsController
             .ToArrayAsync(cancellationToken);
 
         return TypedResults.Ok(new ClaimSummaryPagedResponseDto(items, page, pageSize, totalCount));
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult, UnprocessableEntity<string>>> ForceReassignClaimAsync(
+        Guid id,
+        ForceReassignClaimRequest request,
+        ClaimsPrincipal principal,
+        ClaimService claimService,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var supervisorId = principal.Identity?.Name; // Or get it from claims
+        if (string.IsNullOrEmpty(supervisorId))
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+        try
+        {
+            var updatedClaim = await claimService.ForceReassignClaimAsync(id, request.NewAdjusterId, supervisorId);
+            var claimDto = await BuildClaimDtoAsync(dbContext, updatedClaim, cancellationToken);
+            return TypedResults.Ok(claimDto);
+        }
+        catch (ClaimNotFoundException ex)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: ex.Message);
+        }
+        catch (ForceReassignmentNotAllowedException ex)
+        {
+            return TypedResults.UnprocessableEntity(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+             return TypedResults.UnprocessableEntity(ex.Message);
+        }
     }
 
     private static async Task<Results<Ok<ClaimDto>, ProblemHttpResult>> GetClaimDetailsAsync(
