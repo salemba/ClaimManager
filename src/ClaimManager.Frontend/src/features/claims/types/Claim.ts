@@ -80,6 +80,7 @@ export interface ClaimSummary {
   updatedAtUtc: string | null;
   blockerType: string | null;
   blockerReason: string | null;
+  blockedAtUtc: string | null;
   ownedByUserId: string | null;
   hasDataIntegrityWarning: boolean;
   policySyncedAtUtc: string | null;

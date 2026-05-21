@@ -75,6 +75,13 @@ export async function routeClaimForApproval(id: string, rationale: string, rowVe
   });
 }
 
+export async function interveneOnClaim(id: string, newOwnerId: string, targetStatus: string, rowVersion: string) {
+  return apiFetch<Claim>(`/api/claims/${id}/intervene`, {
+    method: 'POST',
+    body: JSON.stringify({ newOwnerId, targetStatus, rowVersion }),
+  });
+}
+
 export async function syncClaimPolicyData(id: string) {
   return apiFetch<Claim>(`/api/claims/${id}/sync-policy`, {
     method: 'POST',

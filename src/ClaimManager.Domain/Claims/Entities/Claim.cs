@@ -59,6 +59,8 @@ public sealed class Claim
 
     public string? BlockerReason { get; set; }
 
+    public DateTime? BlockedAtUtc { get; set; }
+
     public string? OwnedByUserId { get; set; }
 
     public string? NextExpectedAction { get; set; }
@@ -219,6 +221,7 @@ public sealed class Claim
         NextExpectedAction = transition.NextExpectedAction;
         BlockerType = null;
         BlockerReason = null;
+        BlockedAtUtc = null;
         UpdatedByUserId = normalizedUserId;
         UpdatedAtUtc = advancedAtUtc;
 
@@ -241,10 +244,42 @@ public sealed class Claim
         Status = "pending";
         BlockerType = "awaiting-payment-approval";
         BlockerReason = normalizedRationale;
+        BlockedAtUtc = normalizedUpdatedAtUtc;
         NextExpectedAction = "Awaiting payment approval decision";
         OwnedByUserId = normalizedUserId;
         UpdatedByUserId = normalizedUserId;
         UpdatedAtUtc = normalizedUpdatedAtUtc;
+    }
+
+    public void Intervene(string newOwnerId, string targetStatus, string supervisorId, DateTime intervenedAtUtc)
+    {
+        var normalizedNewOwnerId = NormalizeRequired(newOwnerId, nameof(newOwnerId));
+        var normalizedTargetStatus = NormalizeRequired(targetStatus, nameof(targetStatus));
+        var normalizedSupervisorId = NormalizeRequired(supervisorId, nameof(supervisorId));
+        var normalizedIntervenedAtUtc = EnsurePastOrPresentUtc(intervenedAtUtc, nameof(intervenedAtUtc));
+
+        bool isBlockedLongEnough = BlockerType != null && BlockedAtUtc.HasValue && (normalizedIntervenedAtUtc - BlockedAtUtc.Value).TotalHours > 48;
+        bool isHighAmount = PaymentAmount > 10000m;
+
+        if (!isBlockedLongEnough && !isHighAmount)
+        {
+            throw new InvalidOperationException("Supervisor intervention is only allowed for claims blocked for more than 48 hours or with an amount exceeding €10,000.");
+        }
+
+        var previousStatus = Status;
+        var previousOwnerId = OwnedByUserId;
+
+        Status = normalizedTargetStatus;
+        OwnedByUserId = normalizedNewOwnerId;
+        BlockerType = null;
+        BlockerReason = null;
+        BlockedAtUtc = null;
+        NextExpectedAction = "Supervisor intervention completed. Follow-up review required.";
+        UpdatedByUserId = normalizedSupervisorId;
+        UpdatedAtUtc = normalizedIntervenedAtUtc;
+
+        var noteContent = $"Supervisor intervention performed. Claim transitioned from '{previousStatus}' (owned by {previousOwnerId ?? "unassigned"}) to '{Status}' (owned by {OwnedByUserId}).";
+        AddNote(noteContent, normalizedSupervisorId, normalizedIntervenedAtUtc);
     }
 
     public string ApplyPolicyData(

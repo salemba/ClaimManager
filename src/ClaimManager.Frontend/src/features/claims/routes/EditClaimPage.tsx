@@ -2,7 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Link as RouterLink, Navigate, useLocation, useParams } from 'react-router-dom';
-import { addClaimNote, advanceClaimWorkflow, getClaim, reconcileClaimState, routeClaimForApproval, syncClaimDocumentData, syncClaimPaymentData, syncClaimPolicyData, updateClaim, uploadClaimDocument } from '../api/claimsApi';
+import {
+  advanceClaimWorkflow,
+  getClaim,
+  reconcileClaimState,
+  routeClaimForApproval,
+  syncClaimDocumentData,
+  syncClaimPaymentData,
+  syncClaimPolicyData,
+  updateClaim,
+  interveneOnClaim,
+} from '../api/claimsApi';
 import { sendClaimNotification, retryClaimNotification } from '../../claimant-communication/api';
 import { ClaimCommunicationsPanel } from '../../claimant-communication/ClaimCommunicationsPanel';
 import type { SendNotificationRequest } from '../../claimant-communication/types';
@@ -246,6 +256,14 @@ export function EditClaimPage() {
     },
   });
 
+  const interveneMutation = useMutation({
+    mutationFn: ({ newOwnerId, targetStatus, rowVersion }: { newOwnerId: string; targetStatus: string; rowVersion: string }) =>
+      interveneOnClaim(claimId!, newOwnerId, targetStatus, rowVersion),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claims', claimId] });
+    },
+  });
+
   if (!claimId) {
     return <Navigate to="/claims" replace />;
   }
@@ -352,10 +370,15 @@ export function EditClaimPage() {
           onRouteForApproval={async (rationale, rowVersion) => {
             await routeForApprovalMutation.mutateAsync({ rationale, rowVersion });
           }}
+          onIntervene={async (newOwnerId, targetStatus, rowVersion) => {
+            await interveneMutation.mutateAsync({ newOwnerId, targetStatus, rowVersion });
+          }}
           advancing={advanceWorkflowMutation.isPending}
           routing={routeForApprovalMutation.isPending}
+          intervening={interveneMutation.isPending}
           advanceError={advanceError}
           routeError={routeError}
+          interveneError={interveneError}
         />
 
         <Stack

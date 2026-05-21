@@ -13,3 +13,6 @@ Refactor the handler in `GetSupervisorDashboardQuery.cs` to populate the new wor
 - Do not execute raw SQL queries. Use LINQ queries against the `ClaimManagerDbContext`.
 - Group claims efficiently to compute adjuster load, aging pressure metrics, and identify recurring blocker patterns (AC 1 & AC 2).
 - Respect async/await standards and ensure cancellation tokens are passed correctly to EF Core operations.
+
+# Output
+- description.md file

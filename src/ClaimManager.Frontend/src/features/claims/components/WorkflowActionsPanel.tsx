@@ -1,8 +1,11 @@
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import PlayArrowRounded from '@mui/icons-material/PlayArrowRounded';
-import { Alert, Button, Collapse, Paper, Stack, TextField, Typography } from '@mui/material';
+import SupervisorAccountRounded from '@mui/icons-material/SupervisorAccountRounded';
+import { Alert, Button, Collapse, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { getWorkspace } from '../../auth/api/authApi';
 import type { Claim } from '../types/Claim';
 
 interface WorkflowAction {
@@ -21,29 +24,53 @@ const STATUS_LABELS: Record<string, string> = {
   approved: 'Close Claim',
 };
 
+const WORKFLOW_STATES = ['new', 'open', 'in-review', 'pending', 'approved', 'closed'];
+
 interface WorkflowActionsPanelProps {
   claim: Claim;
   onAdvance: (rowVersion: string) => Promise<void>;
   onRouteForApproval: (rationale: string, rowVersion: string) => Promise<void>;
+  onIntervene?: (newOwnerId: string, targetStatus: string, rowVersion: string) => Promise<void>;
   advancing?: boolean;
   routing?: boolean;
+  intervening?: boolean;
   advanceError?: string | null;
   routeError?: string | null;
+  interveneError?: string | null;
 }
 
 export function WorkflowActionsPanel({
   claim,
   onAdvance,
   onRouteForApproval,
+  onIntervene,
   advancing = false,
   routing = false,
+  intervening = false,
   advanceError,
   routeError,
+  interveneError,
 }: WorkflowActionsPanelProps) {
   const [showRationaleInput, setShowRationaleInput] = useState(false);
+  const [showInterventionInput, setShowInterventionInput] = useState(false);
   const [rationale, setRationale] = useState('');
+  const [targetOwnerId, setTargetOwnerId] = useState('');
+  const [targetStatus, setTargetStatus] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const isBusy = advancing || routing;
+
+  const workspaceQuery = useQuery({
+    queryKey: ['workspace'],
+    queryFn: getWorkspace,
+    staleTime: 300_000,
+  });
+
+  const isBusy = advancing || routing || intervening;
+  const isSupervisor = workspaceQuery.data?.user.roles.includes('supervisor') || workspaceQuery.data?.user.roles.includes('admin');
+
+  // Intervention criteria: blocked > 48h OR amount > 10k
+  const isBlockedLongEnough = !!claim.blockedAtUtc && (Date.now() - new Date(claim.blockedAtUtc).getTime()) > 48 * 60 * 60 * 1000;
+  const isHighAmount = (claim.paymentAmount ?? 0) > 10000;
+  const canIntervene = isBlockedLongEnough || isHighAmount;
 
   const actions = (claim.availableActions || [])
     .map((actionType) => {
@@ -85,6 +112,20 @@ export function WorkflowActionsPanel({
     }
   };
 
+  const handleConfirmIntervention = async () => {
+    if (!onIntervene || !targetOwnerId || !targetStatus) return;
+    setSuccessMessage(null);
+    try {
+      await onIntervene(targetOwnerId, targetStatus, claim.rowVersion);
+      setShowInterventionInput(false);
+      setTargetOwnerId('');
+      setTargetStatus('');
+      setSuccessMessage(`Supervisor intervention completed. The claim has been reassigned and progressed.`);
+    } catch {
+      // error handled by parent via interveneError prop
+    }
+  };
+
   return (
     <Paper component="section" sx={{ p: { xs: 3, md: 4 } }} aria-label="Workflow actions">
       <Stack spacing={2.5}>
@@ -106,8 +147,9 @@ export function WorkflowActionsPanel({
 
         {advanceError ? <Alert severity="error">{advanceError}</Alert> : null}
         {routeError ? <Alert severity="error">{routeError}</Alert> : null}
+        {interveneError ? <Alert severity="error">{interveneError}</Alert> : null}
 
-        {actions.length === 0 ? (
+        {actions.length === 0 && !isSupervisor ? (
           <Typography variant="body2" color="text.secondary">
             No workflow actions available from current state.
           </Typography>
@@ -181,6 +223,86 @@ export function WorkflowActionsPanel({
                 </Stack>
               );
             })}
+
+            {isSupervisor ? (
+              <Stack spacing={1.5} sx={{ mt: 1, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                <Typography variant="overline" color="warning.main" sx={{ fontWeight: 'bold' }}>
+                  Supervisor Intervention
+                </Typography>
+                
+                {!showInterventionInput ? (
+                  <div>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      startIcon={<SupervisorAccountRounded />}
+                      disabled={isBusy || !canIntervene}
+                      onClick={() => setShowInterventionInput(true)}
+                    >
+                      Intervene & Reassign
+                    </Button>
+                    {!canIntervene && (
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                        Requires blocker &gt; 48h or amount &gt; €10,000.
+                      </Typography>
+                    )}
+                  </div>
+                ) : null}
+
+                <Collapse in={showInterventionInput}>
+                  <Stack spacing={2}>
+                    <Typography variant="body2">
+                      Manually reassign the claim and force a workflow transition.
+                    </Typography>
+                    <TextField
+                      label="Target Adjuster ID"
+                      value={targetOwnerId}
+                      onChange={(e) => setTargetOwnerId(e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g. adjuster@claimmanager.local"
+                      slotProps={{ htmlInput: { 'aria-label': 'Target Adjuster ID' } }}
+                    />
+                    <TextField
+                      select
+                      label="Target Workflow Status"
+                      value={targetStatus}
+                      onChange={(e) => setTargetStatus(e.target.value)}
+                      fullWidth
+                      size="small"
+                      slotProps={{ htmlInput: { 'aria-label': 'Target Workflow Status' } }}
+                    >
+                      {WORKFLOW_STATES.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          {status.toUpperCase()}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        disabled={isBusy || !targetOwnerId || !targetStatus}
+                        onClick={handleConfirmIntervention}
+                      >
+                        Execute Intervention
+                      </Button>
+                      <Button
+                        variant="text"
+                        disabled={isBusy}
+                        onClick={() => {
+                          setShowInterventionInput(false);
+                          setTargetOwnerId('');
+                          setTargetStatus('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Collapse>
+              </Stack>
+            ) : null}
           </Stack>
         )}
       </Stack>

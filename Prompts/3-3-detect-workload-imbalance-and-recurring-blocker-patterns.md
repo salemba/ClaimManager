@@ -11,6 +11,15 @@ created: 2026-05-17
 
 Status: review
 
+## Urgent Business Request (Sprint 3)
+
+A Supervisor must be able to:
+- Manually reassign a claim to another adjuster (`AdjusterId`)
+- Force its transition to a higher workflow state
+
+**Conditions for intervention (ONLY IF):**
+- The claim has been blocked for more than 48 hours
+- **OR** its amount exceeds €10,000
 
 ## Story
 
@@ -78,9 +87,10 @@ The correct implementation posture is additive and disciplined:
 - Enriched blocker pattern context (owner spread, aging prevalence per blocker type)
 - Navigation from workload and pattern views to claims queue with preserved dashboard context
 - Backend DTO extensions and frontend component additions within the existing `features/dashboard` module
+- **[URGENT]** Manual reassignment and forced transition capability (documented, development pending)
 
 **Out of scope:**
-- Reassignment, escalation commands, or any write operation on claims — that is Story 3.4
+- Escalation commands beyond the specific reassignment/force-transition urgent request
 - User name resolution or a user directory lookup — use `OwnedByUserId` string as-is (consistent with existing `ClaimPreviewRow` which already renders `claim.ownedByUserId`)
 - Historical trend analysis or time-series blocker recurrence — the story is about current operational state, not historical patterns
 - New background jobs, caching layers, or event-driven updates — the existing 60-second refetch cadence in `SupervisorDashboard.tsx` covers freshness needs

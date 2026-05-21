@@ -54,6 +54,8 @@ public static class ClaimsController
         group.MapPost("/{id:guid}/sync-payment", SyncClaimPaymentDataAsync);
         group.MapPost("/{id:guid}/sync-documents", SyncClaimDocumentDataAsync);
         group.MapPost("/{id:guid}/reconcile", ReconcileClaimStateAsync);
+        group.MapPost("/{id:guid}/intervene", InterveneOnClaimAsync)
+            .RequireAuthorization(ClaimManagerPolicies.Supervisor);
         group.MapPost("/{id:guid}/notifications", SendClaimNotificationAsync);
         group.MapPost("/{id:guid}/notifications/{notificationId:guid}/retry", RetryClaimNotificationAsync);
 
@@ -786,6 +788,69 @@ public static class ClaimsController
             $"Claim routed for payment approval. Rationale: {claim.BlockerReason}",
             user.Id.ToString(),
             routedAtUtc).ToEntity());
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Concurrency conflict",
+                detail: "The claim has been modified by another user. Please reload the claim and try again.");
+        }
+
+        return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ValidationProblem, ProblemHttpResult>> InterveneOnClaimAsync(
+        Guid id,
+        InterveneOnClaimCommand command,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        command = command with { Id = id };
+
+        var validator = new InterveneOnClaimCommandValidator();
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            return TypedResults.ValidationProblem(ToValidationDictionary(validationResult));
+        }
+
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claim = await dbContext.Claims.SingleOrDefaultAsync(existingClaim => existingClaim.Id == id, cancellationToken);
+        if (claim is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        dbContext.Entry(claim).Property(c => c.RowVersion).OriginalValue = command.RowVersion;
+        var intervenedAtUtc = DateTime.UtcNow;
+
+        try
+        {
+            claim.Intervene(command.NewOwnerId, command.TargetStatus, user.Id.ToString(), intervenedAtUtc);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status409Conflict, title: "Intervention criteria not met", detail: ex.Message);
+        }
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            claim.Id,
+            "supervisor-intervention",
+            $"Supervisor intervention performed. New owner: {command.NewOwnerId}, New status: {command.TargetStatus}",
+            user.Id.ToString(),
+            intervenedAtUtc).ToEntity());
 
         try
         {
