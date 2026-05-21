@@ -107,16 +107,35 @@ public sealed class SupervisorDashboardEndpointTests(ClaimManagerApiFactory fact
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        
         Assert.True(document.RootElement.TryGetProperty("workloadDistribution", out var workloadDistribution));
         Assert.Equal(JsonValueKind.Array, workloadDistribution.ValueKind);
+
+        foreach (var owner in workloadDistribution.EnumerateArray())
+        {
+            Assert.True(owner.TryGetProperty("ownerId", out var ownerId));
+            Assert.True(owner.TryGetProperty("totalCount", out var totalCount));
+            Assert.True(owner.TryGetProperty("stuckCount", out var stuckCount));
+            Assert.True(owner.TryGetProperty("agingCount", out var agingCount));
+            Assert.True(owner.TryGetProperty("blockerCount", out var blockerCount));
+            
+            Assert.InRange(totalCount.GetInt32(), 0, int.MaxValue);
+            Assert.InRange(stuckCount.GetInt32(), 0, int.MaxValue);
+            Assert.InRange(agingCount.GetInt32(), 0, int.MaxValue);
+            Assert.InRange(blockerCount.GetInt32(), 0, int.MaxValue);
+        }
 
         Assert.True(document.RootElement.TryGetProperty("blockerSummary", out var blockerSummary));
         Assert.Equal(JsonValueKind.Array, blockerSummary.ValueKind);
 
         foreach (var blocker in blockerSummary.EnumerateArray())
         {
+            Assert.True(blocker.TryGetProperty("blockerType", out var blockerType));
+            Assert.True(blocker.TryGetProperty("count", out var count));
             Assert.True(blocker.TryGetProperty("affectedOwnerCount", out var affectedOwnerCount));
             Assert.True(blocker.TryGetProperty("agingClaimCount", out var agingClaimCount));
+            
+            Assert.InRange(count.GetInt32(), 0, int.MaxValue);
             Assert.InRange(affectedOwnerCount.GetInt32(), 0, int.MaxValue);
             Assert.InRange(agingClaimCount.GetInt32(), 0, int.MaxValue);
         }
