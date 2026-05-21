@@ -26,6 +26,8 @@ so that I can intervene at the team and workflow level instead of only reacting 
 
 3. Given the same data supports both claim-level and pattern-level decisions, when the supervisor switches between those levels, then the system keeps the transition understandable, and does not lose the operational context that explains why the pattern matters.
 
+4. Given the user has the 'Supervisor' role, when a claim is older than 48 hours OR the claim amount is > 10,000, then the supervisor is permitted to change the `adjusterId` and force the workflow state, with every such intervention recorded in the immutable audit trail including the supervisor's identity and a mandatory reason for the action. (AC: 4)
+
 ## Tasks / Subtasks
 
 - [x] Extend the dashboard DTO layer with workload and pattern types. (AC: 1, 2)
@@ -59,20 +61,29 @@ so that I can intervene at the team and workflow level instead of only reacting 
   - [x] In `tests/ClaimManager.Frontend.Tests/src/features/dashboard/supervisorDashboard.test.tsx`, add tests for: workload section renders when multiple owners present, workload section is hidden when one or zero owners present, owner row navigation fires with correct path and `dashboardOrigin` state, blocker chip tooltip shows "adjusters" text when `affectedOwnerCount > 1`.
   - [x] Run `dotnet test tests/ClaimManager.Api.FunctionalTests`, `dotnet test tests/ClaimManager.Application.UnitTests`, `npm test` in `tests/ClaimManager.Frontend.Tests`, and `npm run build` in `src/ClaimManager.Frontend` to confirm no regressions.
 
+- [ ] Implement supervisor intervention (reassignment and state override). (AC: 4)
+  - [ ] Create `SupervisorInterventionDto(string NewAdjusterId, string? NewState, string Reason)` in `src/ClaimManager.Application/Claims/Dtos/SupervisorInterventionDto.cs`.
+  - [ ] Add `InterveneAsync(Guid claimId, SupervisorInterventionDto intervention)` to the Application layer (e.g., `IClaimService`).
+  - [ ] Implement validation logic: ensure requester is a Supervisor and claim meets thresholds (Age > 48h OR Amount > 10,000).
+  - [ ] Pipeline the intervention into the `AuditTrail` system, ensuring the reason and supervisor ID are persisted.
+  - [ ] Expose the intervention via `POST /api/claims/{id}/intervene` in `src/ClaimManager.Api/Endpoints/Claims/ClaimEndpoints.cs`.
+  - [ ] Add an "Intervene" button/dialog to the frontend `ClaimDetail` view, visible only to supervisors when criteria are met.
+
 ## Dev Notes
 
 ### Story Intent
 
-Story 3.3 adds two analytical dimensions to the supervisor dashboard that Story 3.1 deliberately deferred: per-owner workload distribution and systemic blocker pattern context. The dashboard already computes claim-level risk signals. This story layers on team-level awareness so a supervisor can act at workload scale, not just claim by claim.
+Story 3.3 adds two analytical dimensions to the supervisor dashboard that Story 3.1 deliberately deferred: per-owner workload distribution and systemic blocker pattern context. The dashboard already computes claim-level risk signals. This story layers on team-level awareness and targeted intervention capability so a supervisor can act at workload scale and resolve stalled high-value claims.
 
 The correct implementation posture is additive and disciplined:
 - extend existing DTOs rather than replacing them,
 - compute workload groupings server-side from the same in-memory `normalizedClaims` array already loaded by the endpoint,
 - reuse the `dashboardOrigin` navigation context pattern established in Stories 3.1 and 3.2,
-- do not introduce reassignment commands or workflow mutations — those are Story 3.4.
+- introduce targeted reassignment and state override for stalled (>48h) or high-value (>10k) claims, strictly audited.
+- Supervisor intervention: reassignment and workflow state override for claims meeting aging (>48h) or amount (>10,000) thresholds.
 
-### Scope Guardrails
-
+**Out of scope:**
+- Advanced escalation workflows or multi-stage approval override
 **In scope:**
 - Read-only workload distribution across claim owners (per-owner metrics: total, stuck, aging, blocker counts)
 - Enriched blocker pattern context (owner spread, aging prevalence per blocker type)
@@ -90,10 +101,10 @@ The correct implementation posture is additive and disciplined:
 
 After Story 3.2, the dashboard shows risk signals and supports claim-level drill-down. However, two gaps remain for team-level oversight:
 
-1. **No workload visibility:** The dashboard has no view of how claims are distributed across adjusters. A supervisor cannot tell if one adjuster is overwhelmed with stuck claims while another has capacity, without manually browsing the claims queue and mentally aggregating. The `OwnedByUserId` field already exists on every active claim; it just isn't grouped.
-
-2. **Blocker chips lack systemic weight:** The existing `BlockerSummarySection` shows blocker types with claim counts. A supervisor can see "awaiting-payment-approval (8)" but cannot tell if those 8 claims are spread across all adjusters (systemic problem) or concentrated on one adjuster (owner problem). Adding `AffectedOwnerCount` and `AgingClaimCount` to `BlockerGroupSummaryDto` gives the pattern enough context to distinguish systemic from local blockers.
-
+1. **No workload visibility:** The dashboard has no view of how claims are distributed  and `src/ClaimManager.Application/Claims/Dtos/SupervisorInterventionDto.cs`
+- API implementation: `src/ClaimManager.Api/Endpoints/Dashboard/DashboardEndpoints.cs` and `src/ClaimManager.Api/Endpoints/Claims/ClaimEndpoints.cs`
+- Frontend API contract: `src/ClaimManager.Frontend/src/features/dashboard/api/dashboardApi.ts`
+- Frontend component: `src/ClaimManager.Frontend/src/features/dashboard/components/SupervisorDashboard.tsx` and `src/ClaimManager.Frontend/src/features/claims/components/ClaimDetail
 Both gaps are solvable from the data already loaded by `GetSupervisorDashboardAsync` — no new database queries are needed. The `normalizedClaims` array contains `OwnedByUserId`, `BlockerType`, `CreatedAtUtc`, and `HasDataIntegrityWarning` for every active claim.
 
 ### Architecture Compliance
