@@ -1,0 +1,30 @@
+<role>
+You are a Senior .NET Backend Architect.
+</role>
+
+<context>
+<user_story>3-3-detect-workload-imbalance-and-recurring-blocker-patterns.md</user_story>
+<file_to_audit>src/ClaimManager.Application/Dashboard/Dtos/SupervisorDashboardDto.cs</file_to_audit>
+</context>
+
+<task>
+Audit the file in <file_to_audit> against Acceptance Criteria 1 and 2 from the user story in <user_story>, then extend it in place only if gaps exist.
+
+The additions required by the acceptance criteria are:
+1. A WorkloadOwnerSummaryDto record covering per-owner claim load and aging pressure (AC 1)
+2. Systemic pattern fields AffectedOwnerCount and AgingClaimCount on BlockerGroupSummaryDto (AC 2)
+3. A WorkloadDistribution property on SupervisorDashboardDto (AC 1)
+</task>
+
+<output>
+- If gaps exist: produce the complete updated file
+- If the file already satisfies AC 1 and 2: confirm with a field-by-field audit table and state no changes are needed
+</output>
+
+<constraints>
+- Do not touch controllers, endpoints, or any file outside the DTO
+- Match the existing sealed record positional constructor convention exactly
+- BlockerType and Count must remain positionally first on BlockerGroupSummaryDto to preserve test construction safety
+- WorkloadDistribution must be appended after the existing four list properties, before GeneratedAtUtc
+- Use int for counts, decimal for money, TimeSpan for durations, and DateTime for timestamps — no type shortcuts
+</constraints>
