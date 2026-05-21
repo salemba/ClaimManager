@@ -33,6 +33,9 @@ For every prompt, the output must be structured into two distinct sections:
 * **Requirement Match:** Which specific PRD requirement does this fulfill?
 * **UX/UI Constraints:** Does this meet the user experience standards defined in the PRD?
 
+### SECTION III: PERSISTENCE
+*After generating the output, the AI must save the entire response (Execution Result and Analysis) into a markdown file under the `prompts/` folder. The filename must follow the pattern `description-XX.md` under the `descriptions/` folder, where `XX` is the numeric identifier extracted from the source prompt (e.g., `prompt-03-j4.md` results in `description-03.md`).*
+
 ---
 
 ## 3. Mandatory Output Template
