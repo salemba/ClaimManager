@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClaimManager UX Design Directions</title>
+  <style>
+    :root {
+      --bg: #eef3f7;
+      --panel: #ffffff;
+      --ink: #17212b;
+      --muted: #617283;
+      --line: #d8e0e7;
+      --accent: #1463ff;
+      --success: #157f5b;
+      --warn: #b76a11;
+      --danger: #b33a3a;
+      --radius: 18px;
+      --shadow: 0 18px 40px rgba(26, 39, 54, 0.08);
+      --font-ui: "Segoe UI", "Inter", "Helvetica Neue", sans-serif;
+      --font-display: "Aptos", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-ui);
+      background:
+        radial-gradient(circle at top left, rgba(20, 99, 255, 0.08), transparent 22%),
+        linear-gradient(180deg, #f5f8fb 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    header {
+      padding: 40px 48px 28px;
+      border-bottom: 1px solid rgba(23, 33, 43, 0.08);
+      background: rgba(255, 255, 255, 0.76);
+      backdrop-filter: blur(18px);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: 34px;
+      line-height: 1.1;
+      margin: 0 0 10px;
+    }
+
+    .intro {
+      max-width: 980px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    main {
+      padding: 32px 32px 64px;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .legend-card,
+    .direction {
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(23, 33, 43, 0.08);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .legend-card {
+      padding: 18px 20px;
+    }
+
+    .legend-card strong {
+      display: block;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      color: #304355;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 22px;
+    }
+
+    .direction {
+      overflow: hidden;
+    }
+
+    .direction-header {
+      padding: 20px 22px 16px;
+      border-bottom: 1px solid rgba(23, 33, 43, 0.08);
+    }
+
+    .direction-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: rgba(20, 99, 255, 0.12);
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .direction h2 {
+      font-size: 22px;
+      margin: 0 0 6px;
+    }
+
+    .direction p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .tag {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #edf3fb;
+      color: #315172;
+      font-weight: 600;
+    }
+
+    .mockup {
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(245, 248, 251, 0.8), rgba(236, 242, 248, 0.95));
+    }
+
+    .frame {
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(20, 30, 40, 0.08);
+      min-height: 420px;
+      background: #f7fafc;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: rgba(255, 255, 255, 0.82);
+      border-bottom: 1px solid rgba(23, 33, 43, 0.08);
+      font-size: 13px;
+    }
+
+    .window-dots { display: flex; gap: 6px; }
+    .window-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: block;
+      background: #d4dce4;
+    }
+
+    .workspace {
+      display: grid;
+      min-height: 380px;
+    }
+
+    .sidebar {
+      padding: 18px 14px;
+      border-right: 1px solid rgba(23, 33, 43, 0.08);
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .sidebar h3,
+    .panel h3,
+    .hero h3 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #53677a;
+    }
+
+    .nav-item,
+    .list-row,
+    .metric,
+    .mini-card,
+    .message,
+    .feed-card,
+    .board-card,
+    .timeline-item,
+    .focus-card,
+    .stack-card {
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(23, 33, 43, 0.08);
+    }
+
+    .nav-item {
+      padding: 10px 12px;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #334a5d;
+    }
+
+    .nav-item.active {
+      background: rgba(20, 99, 255, 0.12);
+      color: var(--accent);
+      border-color: rgba(20, 99, 255, 0.2);
+      font-weight: 700;
+    }
+
+    .main-panel {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(23, 33, 43, 0.08);
+    }
+
+    .hero strong {
+      font-size: 20px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .metrics,
+    .cards-2,
+    .cards-3,
+    .list,
+    .timeline,
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .metrics { grid-template-columns: repeat(3, 1fr); }
+    .cards-2 { grid-template-columns: 1.2fr 1fr; }
+    .cards-3 { grid-template-columns: repeat(3, 1fr); }
+
+    .metric,
+    .panel,
+    .mini-card,
+    .feed-card,
+    .board-card,
+    .focus-card,
+    .stack-card {
+      padding: 14px;
+    }
+
+    .metric b,
+    .focus-card b,
+    .stack-card b,
+    .mini-card b,
+    .board-card b {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+
+    .muted { color: var(--muted); font-size: 13px; }
+    .accent { color: var(--accent); }
+    .success { color: var(--success); }
+    .warn { color: var(--warn); }
+    .danger { color: var(--danger); }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 18px;
+      border: 1px solid rgba(23, 33, 43, 0.08);
+    }
+
+    .list-row {
+      display: grid;
+      grid-template-columns: 1.2fr 0.9fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 6px 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #eef4ff;
+      color: var(--accent);
+    }
+
+    .pill.warn { background: #fff4e9; color: var(--warn); }
+    .pill.success { background: #eaf7f1; color: var(--success); }
+    .pill.danger { background: #fdeeee; color: var(--danger); }
+
+    .message {
+      padding: 12px 14px;
+      margin-top: 10px;
+      background: #f8fbff;
+    }
+
+    .direction-footer {
+      padding: 18px 22px 22px;
+      border-top: 1px solid rgba(23, 33, 43, 0.08);
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .direction-footer strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .callout {
+      margin-top: 28px;
+      padding: 22px 24px;
+      background: linear-gradient(135deg, #16324b, #214f72);
+      color: #eff7ff;
+      border-radius: 24px;
+      box-shadow: 0 24px 48px rgba(16, 36, 55, 0.18);
+    }
+
+    .callout h2 { margin: 0 0 10px; }
+    .callout p { margin: 0; line-height: 1.6; color: rgba(239, 247, 255, 0.88); }
+
+    .layout-a .workspace { grid-template-columns: 108px 1fr; }
+    .layout-b .workspace { grid-template-columns: 1fr; }
+    .layout-c .workspace { grid-template-columns: 126px 1fr 160px; }
+    .layout-d .workspace { grid-template-columns: 150px 1fr; }
+    .layout-e .workspace { grid-template-columns: 1fr; }
+    .layout-f .workspace { grid-template-columns: 120px 1fr; }
+
+    .layout-b .hero,
+    .layout-e .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    .timeline-item,
+    .feed-card,
+    .stack-card {
+      padding: 12px 14px;
+    }
+
+    .timeline-item { display: grid; gap: 6px; }
+
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .kanban-col {
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(23, 33, 43, 0.08);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .kanban-col h4 { margin: 0 0 10px; font-size: 13px; color: #53677a; }
+    .board-card { margin-bottom: 10px; }
+
+    .right-rail {
+      padding: 18px 14px;
+      background: rgba(247, 250, 252, 0.8);
+      border-left: 1px solid rgba(23, 33, 43, 0.08);
+    }
+
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+      .layout-a .workspace,
+      .layout-c .workspace,
+      .layout-d .workspace,
+      .layout-f .workspace { grid-template-columns: 1fr; }
+      .sidebar, .right-rail { border: 0; border-bottom: 1px solid rgba(23, 33, 43, 0.08); }
+      .metrics, .cards-2, .cards-3, .kanban, .mini-grid, .layout-b .hero, .layout-e .hero { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">ClaimManager UX Design Directions</div>
+    <h1>Six directions for a calm, operational, claimant-safe claims experience</h1>
+    <p class="intro">Each direction applies the same product principles: workflow clarity, next-step guidance, early supervisor confidence, and claimant-safe transparency. Compare them by visual weight, information hierarchy, and how clearly they surface blocker, owner, and next action.</p>
+  </header>
+
+  <main>
+    <section class="legend">
+      <div class="legend-card"><strong>Core Test</strong>Which direction makes the next action obvious without overwhelming the user?</div>
+      <div class="legend-card"><strong>Emotional Goal</strong>Clarity first, then confidence for operators and reassurance for claimants.</div>
+      <div class="legend-card"><strong>References</strong>Borrow calm triage from Asana and readable hierarchy from Notion, not the heaviness of ServiceNow.</div>
+      <div class="legend-card"><strong>Platform</strong>Desktop-first MPA, spacious layouts, modern crisp type, near-real-time operational visibility.</div>
+    </section>
+
+    <section class="grid">
+      <article class="direction">
+        <div class="direction-header">
+          <div class="direction-number">01</div>
+          <h2>Control Tower Calm</h2>
+          <p>A measured oversight-first direction that treats the dashboard as the primary control surface, with a spacious supervisory feel and clear escalation cues.</p>
+          <div class="tags"><span class="tag">Supervisor-led</span><span class="tag">Calm dashboard</span><span class="tag">High scanability</span></div>
+        </div>
+        <div class="mockup">
+          <div class="frame layout-a">
+            <div class="topbar"><div class="window-dots"><span></span><span></span><span></span></div><div>ClaimManager / Control Tower</div><div class="pill warn">5 claims need attention</div></div>
+            <div class="workspace">
+              <aside class="sidebar">
+                <h3>Navigation</h3>
+                <div class="nav-item active">Overview</div>
+                <div class="nav-item">Claims</div>
+                <div class="nav-item">Approvals</div>
+                <div class="nav-item">Claimants</div>
+                <div class="nav-item">Policies</div>
+              </aside>
+              <section class="main-panel">
+                <div class="hero"><h3>Operational snapshot</h3><strong>Payment approval blockers surfaced before escalation</strong><p>Everything the supervisor needs to know is visible before diving into record detail.</p></div>
+                <div class="metrics">
+                  <div class="metric"><span class="muted">Stuck claims</span><b class="danger">12</b><span class="muted">Down 18% this week</span></div>
+                  <div class="metric"><span class="muted">Claims aging &gt; 3d</span><b class="warn">8</b><span class="muted">3 need action now</span></div>
+                  <div class="metric"><span class="muted">Claimant calls</span><b class="success">-22%</b><span class="muted">vs previous month</span></div>
+                </div>
+                <div class="panel">
+                  <h3>Intervention queue</h3>
+                  <div class="list-row"><div><strong>Claim 40281</strong><div class="muted">Payment approval pending / owner unclear</div></div><div class="muted">Awaiting reserve confirmation</div><div class="pill danger">Escalate</div></div>
+                  <div class="list-row"><div><strong>Claim 31844</strong><div class="muted">Approval aging / claimant contacted twice</div></div><div class="muted">Next action: assign approver</div><div class="pill warn">Review</div></div>
+                  <div class="list-row"><div><strong>Claim 22730</strong><div class="muted">Estimate received / payment ready</div></div><div class="muted">Next action: approve release</div><div class="pill success">Move forward</div></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="direction-footer"><strong>Best for</strong><p>Leaning hard into supervisor confidence and early intervention, while still supporting adjuster drill-down from a clear oversight surface.</p></div>
+      </article>
+
+      <article class="direction">
+        <div class="direction-header">
+          <div class="direction-number">02</div>
+          <h2>Claim Story Workspace</h2>
+          <p>An adjuster-first view where the claim reads like a coherent operational story: status, blocker, owner, next action, and claimant-safe explanation in one flow.</p>
+          <div class="tags"><span class="tag">Adjuster-led</span><span class="tag">Narrative clarity</span><span class="tag">Claim story</span></div>
+        </div>
+        <div class="mockup">
+          <div class="frame layout-b">
+            <div class="topbar"><div class="window-dots"><span></span><span></span><span></span></div><div>Claim 40281 / Payment approval pending</div><div class="pill">Owner: Maya</div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="hero">
+                  <div>
+                    <h3>Current claim state</h3>
+                    <strong>Waiting on supervisor approval for payment release</strong>
+                    <p>The blocker is explicit, the owner is visible, and the next action is framed as a decision rather than a vague pending state.</p>
+                  </div>
+                  <div class="mini-grid">
+                    <div class="mini-card"><span class="muted">Blocker</span><b class="warn">Approval pending</b><span class="muted">Threshold exceeded</span></div>
+                    <div class="mini-card"><span class="muted">Next action</span><b class="accent">Escalate to Daniel</b><span class="muted">With estimate + note</span></div>
+                  </div>
+                </div>
+                <div class="cards-2">
+                  <div class="panel">
+                    <h3>Claim story</h3>
+                    <div class="timeline">
+                      <div class="timeline-item"><strong>09:14</strong><span class="muted">Estimate received and attached.</span></div>
+                      <div class="timeline-item"><strong>09:27</strong><span class="muted">Threshold rule triggered supervisor approval.</span></div>
+                      <div class="timeline-item"><strong>09:31</strong><span class="muted">Next-step suggestion prepared with claimant-safe explanation.</span></div>
+                    </div>
+                  </div>
+                  <div class="panel">
+                    <h3>Claimant-safe explanation</h3>
+                    <div class="message"><strong>Message ready</strong><div class="muted">Your claim is in approval review. The next update is expected by tomorrow afternoon.</div></div>
+                    <div class="message"><strong>Why this matters</strong><div class="muted">Explains progress without exposing internal authority details.</div></div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="direction-footer"><strong>Best for</strong><p>Making the claim file itself the product’s defining interaction, especially for adjusters who currently reconstruct state from scattered systems.</p></div>
+      </article>
+
+      <article class="direction">
+        <div class="direction-header">
+          <div class="direction-number">03</div>
+          <h2>Triage Board</h2>
+          <p>A more tactile direction that organizes workflow around moveable operational states, making blockers and next actions feel highly visible and actionable.</p>
+          <div class="tags"><span class="tag">Fast triage</span><span class="tag">Board logic</span><span class="tag">Action-led</span></div>
+        </div>
+        <div class="mockup">
+          <div class="frame layout-c">
+            <div class="topbar"><div class="window-dots"><span></span><span></span><span></span></div><div>Claims triage board</div><div class="pill success">Drag to reassign</div></div>
+            <div class="workspace">
+              <aside class="sidebar">
+                <h3>Views</h3>
+                <div class="nav-item active">Triage board</div>
+                <div class="nav-item">My queue</div>
+                <div class="nav-item">Escalations</div>
+                <div class="nav-item">Messages</div>
+              </aside>
+              <section class="main-panel">
+                <div class="hero"><h3>Board overview</h3><strong>Claims are organized by operational state, not just owner or queue.</strong><p>Useful if the team wants rapid triage and collaborative movement across visible stages.</p></div>
+                <div class="kanban">
+                  <div class="kanban-col"><h4>Needs review</h4><div class="board-card"><b>40281</b><div class="muted">Estimate attached</div></div><div class="board-card"><b>31844</b><div class="muted">Police report missing</div></div></div>
+                  <div class="kanban-col"><h4>Blocked</h4><div class="board-card"><b>17302</b><div class="muted">Approval pending</div></div><div class="board-card"><b>22730</b><div class="muted">Coverage decision</div></div></div>
+                  <div class="kanban-col"><h4>Ready to move</h4><div class="board-card"><b>44012</b><div class="muted">Payment approved</div></div><div class="board-card"><b>51108</b><div class="muted">Claimant update ready</div></div></div>
+                </div>
+              </section>
+              <aside class="right-rail">
+                <h3>Selection detail</h3>
+                <div class="stack">
+                  <div class="stack-card"><strong>Current blocker</strong><div class="muted">Supervisor approval pending</div></div>
+                  <div class="stack-card"><strong>Next action</strong><div class="muted">Escalate with estimate summary</div></div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <div class="direction-footer"><strong>Best for</strong><p>Teams that want a more tactile, queue-visual operational mode and can benefit from visible movement across states.</p></div>
+      </article>
+
+      <article class="direction">
+        <div class="direction-header">
+          <div class="direction-number">04</div>
+          <h2>Guided Resolution Feed</h2>
+          <p>A feed-driven direction where the system continuously explains what changed, why it matters, and what the user should do next.</p>
+          <div class="tags"><span class="tag">Guidance-first</span><span class="tag">Feed model</span><span class="tag">Low ambiguity</span></div>
+        </div>
+        <div class="mockup">
+          <div class="frame layout-d">
+            <div class="topbar"><div class="window-dots"><span></span><span></span><span></span></div><div>Guided resolution</div><div class="pill">3 next steps prepared</div></div>
+            <div class="workspace">
+              <aside class="sidebar">
+                <h3>Queues</h3>
+                <div class="nav-item active">Suggested actions</div>
+                <div class="nav-item">Assigned claims</div>
+                <div class="nav-item">Claimant updates</div>
+              </aside>
+              <section class="main-panel">
+                <div class="hero"><h3>Suggested work</h3><strong>The system leads with next-step guidance, not record browsing.</strong><p>Best for reducing decision fatigue and making the product feel immediately helpful on first use.</p></div>
+                <div class="list">
+                  <div class="feed-card"><strong>Escalate Claim 40281</strong><div class="muted">Approval pending for 21 hours. Owner Daniel should review estimate attachment before 4pm.</div></div>
+                  <div class="feed-card"><strong>Send claimant-safe update</strong><div class="muted">Message is ready. No unsafe internal detail included.</div></div>
+                  <div class="feed-card"><strong>Reassign Claim 31844</strong><div class="muted">Current adjuster workload exceeds threshold. Suggested move keeps aging balanced.</div></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="direction-footer"><strong>Best for</strong><p>Making the product feel intuitive on first use by turning the home surface into a guided queue of meaningful actions.</p></div>
+      </article>
+
+      <article class="direction">
+        <div class="direction-header">
+          <div class="direction-number">05</div>
+          <h2>Claimant Trust Lens</h2>
+          <p>A dual-pane direction that emphasizes the relationship between internal workflow truth and the claimant-safe explanation it produces.</p>
+          <div class="tags"><span class="tag">Transparency-led</span><span class="tag">Dual pane</span><span class="tag">Trust building</span></div>
+        </div>
+        <div class="mockup">
+          <div class="frame layout-e">
+            <div class="topbar"><div class="window-dots"><span></span><span></span><span></span></div><div>Internal state / claimant explanation</div><div class="pill success">Aligned</div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="hero">
+                  <div>
+                    <h3>Internal truth</h3>
+                    <strong>Approval review is waiting on supervisor sign-off</strong>
+                    <p>Show the operator the precise blocker and the next action with clear operational language.</p>
+                  </div>
+                  <div>
+                    <h3>Claimant-safe translation</h3>
+                    <strong>Your claim is in final review</strong>
+                    <p>Explain progress credibly while keeping unsafe internal detail out of external communication.</p>
+                  </div>
+                </div>
+                <div class="cards-2">
+                  <div class="panel">
+                    <h3>Internal details</h3>
+                    <div class="message"><strong>Owner</strong><div class="muted">Daniel, Claims Supervisor</div></div>
+                    <div class="message"><strong>Trigger</strong><div class="muted">Threshold exceeded by $1,250</div></div>
+                  </div>
+                  <div class="panel">
+                    <h3>External message</h3>
+                    <div class="message"><strong>Ready to send</strong><div class="muted">We are completing the review needed before reimbursement can be released. Your next update is expected tomorrow.</div></div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="direction-footer"><strong>Best for</strong><p>Making claimant-safe transparency a visible differentiator in the UI, not just a backend communication feature.</p></div>
+      </article>
+
+      <article class="direction">
+        <div class="direction-header">
+          <div class="direction-number">06</div>
+          <h2>Focused Action Stack</h2>
+          <p>A more minimal, task-compressed direction that strips every screen down to priority, next step, and proof of progress.</p>
+          <div class="tags"><span class="tag">Minimal focus</span><span class="tag">Task compression</span><span class="tag">Low distraction</span></div>
+        </div>
+        <div class="mockup">
+          <div class="frame layout-f">
+            <div class="topbar"><div class="window-dots"><span></span><span></span><span></span></div><div>Focused actions</div><div class="pill danger">1 blocked claim selected</div></div>
+            <div class="workspace">
+              <aside class="sidebar">
+                <h3>Priority</h3>
+                <div class="nav-item active">Blocked now</div>
+                <div class="nav-item">Ready to move</div>
+                <div class="nav-item">Need message</div>
+              </aside>
+              <section class="main-panel">
+                <div class="focus-card"><span class="muted">Claim 40281</span><b>Approval pending</b><div class="muted">Owner Daniel • aging 21h • threshold escalation</div></div>
+                <div class="cards-3">
+                  <div class="mini-card"><span class="muted">Current blocker</span><b class="warn">Supervisor sign-off</b></div>
+                  <div class="mini-card"><span class="muted">Next action</span><b class="accent">Escalate now</b></div>
+                  <div class="mini-card"><span class="muted">Claimant state</span><b class="success">Update ready</b></div>
+                </div>
+                <div class="panel">
+                  <h3>Why this works</h3>
+                  <div class="muted">Everything unrelated to the immediate workflow question is deferred. The interface keeps users in a tight loop of orient, act, confirm.</div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="direction-footer"><strong>Best for</strong><p>Reducing cognitive load aggressively for users who need a direct, low-distraction operational mode rather than a broad dashboard surface.</p></div>
+      </article>
+    </section>
+
+    <section class="callout">
+      <h2>How to choose</h2>
+      <p>Pick the direction that best balances first-use clarity, blocker visibility, and calm operational confidence. You can also combine elements, for example: the oversight structure of Direction 1 with the claim-story clarity of Direction 2 and the claimant-safe explanation treatment of Direction 5.</p>
+    </section>
+  </main>
+</body>
+</html>
