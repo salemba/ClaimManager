@@ -29,37 +29,10 @@ public sealed record DashboardClaimPreviewDto(
     int DaysSinceCreated,
     bool HasDataIntegrityWarning);
 
-public sealed record AdjusterWorkloadMetricsDto(
-    string AdjusterId,
-    string AdjusterName,
-    int ActiveClaimLoad,
-    int AgingClaimCount,
-    TimeSpan AverageAgingDuration,
-    double AgingPressureScore);
-
-public sealed record TeamWorkloadDistributionDto(
-    string TeamId,
-    string TeamName,
-    int TotalActiveClaimLoad,
-    TimeSpan AverageAgingDuration,
-    double OverallAgingPressureScore,
-    IReadOnlyList<AdjusterWorkloadMetricsDto> AdjusterWorkloads);
-
-public sealed record RecurringBlockerPatternDto(
-    string BlockerType,
-    string PatternName,
-    string Description,
-    int OccurrenceCount,
-    TimeSpan AverageDelayDuration,
-    decimal EstimatedFinancialImpact,
-    string BottleneckSeverity);
-
 public sealed record SupervisorDashboardDto(
     SupervisorDashboardSignals Signals,
     IReadOnlyList<BlockerGroupSummaryDto> BlockerSummary,
     IReadOnlyList<DashboardClaimPreviewDto> HighRiskClaims,
     IReadOnlyList<DashboardClaimPreviewDto> AgingClaims,
     IReadOnlyList<WorkloadOwnerSummaryDto> WorkloadDistribution,
-    IReadOnlyList<TeamWorkloadDistributionDto> TeamWorkloadDistributions,
-    IReadOnlyList<RecurringBlockerPatternDto> RecurringBlockerPatterns,
     DateTime GeneratedAtUtc);
