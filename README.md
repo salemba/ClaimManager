@@ -47,6 +47,7 @@ These accounts are created by migrations and are available immediately after `ap
 | Role | Email | Password |
 |------|-------|----------|
 | Adjuster | adjuster@claimmanager.local | Adjuster!2345 |
+| Supervisor | supervisor@claimmanager.local | Supervisor!2345 |
 | Admin | admin@claimmanager.local | Admin!234567 |
 
 The login form also shows these credentials in the UI for convenience.

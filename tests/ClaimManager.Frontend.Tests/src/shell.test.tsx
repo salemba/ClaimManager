@@ -17,6 +17,7 @@ import { createClaim, getClaim, getClaims, updateClaim } from '../../../src/Clai
 import { ApiError } from '../../../src/ClaimManager.Frontend/src/shared/api/client';
 import type { WorkspacePayload } from '../../../src/ClaimManager.Frontend/src/features/auth/api/authApi';
 import { getWorkspace, getIntegrationHealth, login, logout } from '../../../src/ClaimManager.Frontend/src/features/auth/api/authApi';
+import { getSupervisorDashboard } from '../../../src/ClaimManager.Frontend/src/features/dashboard/api/dashboardApi';
 
 vi.mock('../../../src/ClaimManager.Frontend/src/features/auth/api/authApi', () => ({
   getWorkspace: vi.fn(),
@@ -32,8 +33,13 @@ vi.mock('../../../src/ClaimManager.Frontend/src/features/claims/api/claimsApi', 
   updateClaim: vi.fn(),
 }));
 
+vi.mock('../../../src/ClaimManager.Frontend/src/features/dashboard/api/dashboardApi', () => ({
+  getSupervisorDashboard: vi.fn(),
+}));
+
 const mockedGetWorkspace = vi.mocked(getWorkspace);
 const mockedGetIntegrationHealth = vi.mocked(getIntegrationHealth);
+const mockedGetSupervisorDashboard = vi.mocked(getSupervisorDashboard);
 const mockedLogin = vi.mocked(login);
 const mockedLogout = vi.mocked(logout);
 const mockedGetClaims = vi.mocked(getClaims);
@@ -60,6 +66,14 @@ const workspaceFixture: WorkspacePayload = {
       createdAtUtc: '2026-05-11T12:00:00Z',
     },
   ],
+};
+
+const adjusterOnlyWorkspaceFixture: WorkspacePayload = {
+  ...workspaceFixture,
+  user: {
+    ...workspaceFixture.user,
+    roles: ['Adjuster'],
+  },
 };
 
 const claimsQueueFixture = [
@@ -167,6 +181,13 @@ describe('ClaimManager workbench foundation', () => {
   beforeEach(() => {
     mockedGetWorkspace.mockResolvedValue(workspaceFixture);
     mockedGetIntegrationHealth.mockResolvedValue({ entries: [], reportedAtUtc: new Date().toISOString() });
+    mockedGetSupervisorDashboard.mockResolvedValue({
+      signals: { stuckCount: 0, agingCount: 0, attentionRequiredCount: 0, approvalPressureCount: 0 },
+      blockerSummary: [],
+      highRiskClaims: [],
+      agingClaims: [],
+      generatedAtUtc: new Date().toISOString(),
+    });
     mockedGetClaims.mockResolvedValue({ items: claimsQueueFixture, page: 1, pageSize: 20, totalCount: claimsQueueFixture.length });
     mockedGetClaim.mockResolvedValue(claimDetailFixture);
     mockedCreateClaim.mockResolvedValue(claimDetailFixture);
@@ -194,9 +215,8 @@ describe('ClaimManager workbench foundation', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Operational dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Initial claims workspace' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Workspace summary' })).toBeInTheDocument();
-    expect(screen.getByText('Theme provider active')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Supervisor dashboard' })).toBeInTheDocument();
 
     await user.tab();
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveFocus();
@@ -206,6 +226,15 @@ describe('ClaimManager workbench foundation', () => {
 
     await user.tab();
     expect(screen.getByRole('link', { name: /Claims/i })).toHaveFocus();
+  });
+
+  it('redirects non-supervisors from the dashboard route to the claims queue', async () => {
+    const router = createWorkbenchRouter(['/']);
+    mockedGetWorkspace.mockResolvedValue(adjusterOnlyWorkspaceFixture);
+
+    renderWithProviders(router);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Claims work queue' })).toBeInTheDocument();
   });
 
   it('renders predictable placeholder routes for workbench destinations', async () => {

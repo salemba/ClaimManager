@@ -97,6 +97,12 @@ export function LoginForm() {
                     <ListItemIcon sx={{ minWidth: 36 }}>
                       <TipsAndUpdatesOutlined color="primary" fontSize="small" />
                     </ListItemIcon>
+                    <ListItemText primary="Supervisor" secondary="supervisor@claimmanager.local / Supervisor!2345" />
+                  </ListItem>
+                  <ListItem disableGutters>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <TipsAndUpdatesOutlined color="primary" fontSize="small" />
+                    </ListItemIcon>
                     <ListItemText primary="Admin" secondary="admin@claimmanager.local / Admin!234567" />
                   </ListItem>
                 </List>
