@@ -2,6 +2,7 @@ using ClaimManager.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
@@ -64,6 +65,7 @@ public sealed class ClaimManagerApiFactory : WebApplicationFactory<Program>, IAs
         var dbContextOptions = new DbContextOptionsBuilder<ClaimManagerDbContext>()
             .UseNpgsql(_database.GetConnectionString())
             .UseSnakeCaseNamingConvention()
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
             .Options;
 
         await using var dbContext = new ClaimManagerDbContext(dbContextOptions);

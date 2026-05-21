@@ -16,6 +16,8 @@ internal static class ClaimManagerSeedData
     public static readonly Guid AdminUserId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     public static readonly Guid SupervisorUserId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static readonly Guid InitialClaimId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    public static readonly Guid BlockerClaimId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+    public static readonly Guid AgingClaimId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
 
     public static readonly DateTime SeededAtUtc = new(2026, 5, 11, 0, 0, 0, DateTimeKind.Utc);
 
@@ -73,6 +75,40 @@ internal static class ClaimManagerSeedData
             LossDescription = "Kitchen pipe burst caused water damage across the lower level.",
             CreatedAtUtc = SeededAtUtc,
             CreatedByUserId = AdjusterUserId.ToString()
+        },
+        new()
+        {
+            Id = BlockerClaimId,
+            ClaimNumber = "CLM-0002",
+            Status = "active",
+            ClaimantName = "Terry Smith",
+            ClaimantEmail = "terry.smith@example.com",
+            ClaimantPhone = "555-0101",
+            PolicyNumber = "POL-2026-0002",
+            LossDateUtc = SeededAtUtc.AddDays(-5),
+            LossType = "Collision",
+            LossDescription = "Two-car collision at intersection.",
+            CreatedAtUtc = SeededAtUtc.AddDays(-1),
+            CreatedByUserId = AdjusterUserId.ToString(),
+            OwnedByUserId = AdjusterUserId.ToString(),
+            BlockerType = "awaiting-payment-approval",
+            BlockerReason = "High value settlement requires senior sign-off."
+        },
+        new()
+        {
+            Id = AgingClaimId,
+            ClaimNumber = "CLM-0003",
+            Status = "active",
+            ClaimantName = "Alex Rivera",
+            ClaimantEmail = "alex.rivera@example.com",
+            ClaimantPhone = "555-0102",
+            PolicyNumber = "POL-2026-0003",
+            LossDateUtc = SeededAtUtc.AddDays(-20),
+            LossType = "Theft",
+            LossDescription = "Vehicle stolen from driveway.",
+            CreatedAtUtc = SeededAtUtc.AddDays(-20),
+            CreatedByUserId = AdjusterUserId.ToString(),
+            OwnedByUserId = AdminUserId.ToString()
         }
     ];
 
