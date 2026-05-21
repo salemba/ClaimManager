@@ -7,9 +7,10 @@ using ClaimManager.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using ClaimManager.Application.Common.Interfaces;
 
 public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext> options)
-    : IdentityDbContext<ClaimManagerUser, ClaimManagerRole, Guid>(options)
+    : IdentityDbContext<ClaimManagerUser, ClaimManagerRole, Guid>(options), IApplicationDbContext
 {
     public DbSet<Claim> Claims => Set<Claim>();
 

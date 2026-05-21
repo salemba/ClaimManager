@@ -3,6 +3,8 @@ using ClaimManager.Api.Endpoints.Auth;
 using ClaimManager.Api.Endpoints.Claims;
 using ClaimManager.Api.Endpoints.Dashboard;
 using ClaimManager.Api.Endpoints.Workspace;
+using ClaimManager.Application.Common.Interfaces;
+using ClaimManager.Application.Dashboard.Queries;
 using ClaimManager.Application.Security;
 using ClaimManager.Infrastructure.Integrations.DocumentRepository;
 using ClaimManager.Infrastructure.Integrations.Messaging;
@@ -112,6 +114,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(ClaimManagerPolicies.Admin, policy =>
         policy.RequireRole(ClaimManagerRoles.Admin));
 });
+
+builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ClaimManagerDbContext>());
+builder.Services.AddScoped<GetSupervisorDashboardQueryHandler>();
 
 var app = builder.Build();
 
