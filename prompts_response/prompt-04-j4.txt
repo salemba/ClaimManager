@@ -1,0 +1,68 @@
+You are a senior TypeScript developer specialized in insurance claims management systems.
+You produce production-grade, strictly typed code, without object mutation, with typed
+business errors. You only comment on non-trivial decisions.
+
+---
+
+## Context
+
+Claim entity: `id`, `adjusterId`, `status` (enum), `amount` (€), `blockedSince` (timestamp), `createdAt`
+
+Ordered workflow:
+RECEIVED → UNDER_REVIEW → PENDING_DOCS → EXPERT_ASSIGNED → VALIDATED → CLOSED
+
+Only a user with the **SUPERVISOR** role can trigger this action.
+
+---
+
+## Business Rules
+
+The action is allowed if **at least one** of the following conditions is true:
+- `(now - claim.blockedSince) > 48h`
+- `claim.amount > 10 000 €`
+
+---
+
+## Task
+
+Implement the supervisor manual reassignment feature with these 4 deliverables:
+
+**1. Function**
+````ts
+canForceReassign(claim: Claim, now: Date): { allowed: boolean; reasons: string[] }
+````
+
+Evaluates conditions and returns triggering reasons for display in the modal.
+
+**2. Service** `forceReassignClaim(claimId, newAdjusterId, supervisorId)`:
+- Verify conditions via `canForceReassign` — typed business error if not met
+- Retrieve next workflow state — error if CLOSED (no higher state possible)
+- Update claim (`adjusterId` + `status`) without mutating the original object
+- Persist a `ForceReassignAudit`: supervisorId, timestamp, reason, before/after state, before/after adjusterId
+- Notify new + old adjuster in a non-blocking `try/catch`
+- Return the updated claim
+
+**3. REST endpoint** `PUT /claims/:id/force-reassign`
+- Body: `{ newAdjusterId: string }` — Auth: Bearer token, SUPERVISOR role
+- Responses: `200` ok | `403` insufficient role | `422` conditions not met | `404` not found
+
+**4. Unit tests** covering:
+- Blocked > 48h → allowed
+- Amount > 10 000 € → allowed
+- Both conditions true → allowed, both reasons returned
+- No condition met → rejected with explicit message
+- CLOSED state → error "no higher state possible"
+
+---
+
+## Constraints
+
+- Strict TypeScript
+- No direct mutation of the claim object
+- Business errors = typed classes, never raw strings
+- Audit persisted even if notifications fail — separate `try/catch`
+- Repositories injectable via interface for testability
+- Comment only non-trivial decisions
+
+````
+````
