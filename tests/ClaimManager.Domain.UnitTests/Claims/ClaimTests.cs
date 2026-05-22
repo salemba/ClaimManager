@@ -1,90 +1,140 @@
-using ClaimManager.Domain.Claims.Entities;
-using FluentAssertions;
-using System;
-using Xunit;
+using ClaimManager.Domain.Claims;
 
 namespace ClaimManager.Domain.UnitTests.Claims;
 
 public sealed class ClaimTests
 {
-    private static readonly DateTime _now = new(2026, 5, 11, 8, 30, 0, DateTimeKind.Utc);
-
     [Fact]
-    public void CanForceReassign_ShouldBeAllowed_WhenBlockedForMoreThan48Hours()
+    public void Claim_preserves_core_foundation_fields()
     {
-        // Arrange
-        var claim = Claim.Create("C-1", "Test", "t@t.com", "123", "P-1", _now.AddDays(-10), "Theft", "desc", "user1", "adj1", 1000, _now.AddDays(-10));
-        var blockedClaim = claim.With(claim.AdjusterId, claim.Status);
-        // Using reflection to set private setter property for test setup
-        typeof(Claim).GetProperty(nameof(Claim.BlockedSince))!.SetValue(blockedClaim, _now.AddHours(-49));
+        var createdAtUtc = new DateTime(2026, 5, 11, 8, 30, 0, DateTimeKind.Utc);
 
-        // Act
-        var (allowed, reasons) = blockedClaim.CanForceReassign(_now);
+        var claim = Claim.Create(
+            "CLM-0099",
+            "Jordan Avery",
+            "jordan.avery@example.com",
+            "555-0100",
+            "POL-0009",
+            createdAtUtc.AddDays(-1),
+            "Water damage",
+            "Pipe burst in lower level.",
+            "adjuster-1",
+            createdAtUtc);
 
-        // Assert
-        allowed.Should().BeTrue();
-        reasons.Should().Contain("Claim has been blocked for more than 48 hours.");
+        Assert.Equal("CLM-0099", claim.ClaimNumber);
+        Assert.Equal("new", claim.Status);
+        Assert.Equal(createdAtUtc, claim.CreatedAtUtc);
+        Assert.Equal("Jordan Avery", claim.ClaimantName);
+        Assert.Equal("POL-0009", claim.PolicyNumber);
     }
 
     [Fact]
-    public void CanForceReassign_ShouldBeAllowed_WhenAmountIsGreaterThan10000()
+    public void Updating_claim_core_details_sets_updated_fields_when_material_changes_exist()
     {
-        // Arrange
-        var claim = Claim.Create("C-1", "Test", "t@t.com", "123", "P-1", _now.AddDays(-10), "Theft", "desc", "user1", "adj1", 10001, _now.AddDays(-10));
+        var claim = Claim.Create(
+            "CLM-0100",
+            "Jordan Avery",
+            "jordan.avery@example.com",
+            "555-0100",
+            "POL-0100",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Water damage",
+            "Pipe burst in lower level.",
+            "adjuster-1",
+            new DateTime(2026, 5, 11, 8, 30, 0, DateTimeKind.Utc));
 
-        // Act
-        var (allowed, reasons) = claim.CanForceReassign(_now);
+        var updatedAtUtc = new DateTime(2026, 5, 12, 9, 15, 0, DateTimeKind.Utc);
 
-        // Assert
-        allowed.Should().BeTrue();
-        reasons.Should().Contain("Claim amount is over €10,000.");
+        var changed = claim.UpdateCoreDetails(
+            "Jordan Avery",
+            "jordan.updated@example.com",
+            "555-0111",
+            "POL-0100",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Water damage",
+            "Pipe burst in lower level with cabinet damage.",
+            "adjuster-2",
+            updatedAtUtc);
+
+        Assert.True(changed);
+        Assert.Equal("jordan.updated@example.com", claim.ClaimantEmail);
+        Assert.Equal("555-0111", claim.ClaimantPhone);
+        Assert.Equal(updatedAtUtc, claim.UpdatedAtUtc);
+        Assert.Equal("adjuster-2", claim.UpdatedByUserId);
     }
 
     [Fact]
-    public void CanForceReassign_ShouldBeAllowed_WithBothConditionsMet()
+    public void Claim_can_add_a_note_with_trimmed_content_and_actor_metadata()
     {
-        // Arrange
-        var claim = Claim.Create("C-1", "Test", "t@t.com", "123", "P-1", _now.AddDays(-10), "Theft", "desc", "user1", "adj1", 10001, _now.AddDays(-10));
-        var blockedClaim = claim.With(claim.AdjusterId, claim.Status);
-        typeof(Claim).GetProperty(nameof(Claim.BlockedSince))!.SetValue(blockedClaim, _now.AddHours(-49));
+        var claim = Claim.Create(
+            "CLM-0101",
+            "Jordan Avery",
+            "jordan.avery@example.com",
+            "555-0100",
+            "POL-0101",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Water damage",
+            "Pipe burst in lower level.",
+            "adjuster-1",
+            new DateTime(2026, 5, 11, 8, 30, 0, DateTimeKind.Utc));
 
-        // Act
-        var (allowed, reasons) = blockedClaim.CanForceReassign(_now);
+        var createdAtUtc = new DateTime(2026, 5, 12, 10, 0, 0, DateTimeKind.Utc);
 
-        // Assert
-        allowed.Should().BeTrue();
-        reasons.Should().HaveCount(2);
-        reasons.Should().Contain("Claim has been blocked for more than 48 hours.");
-        reasons.Should().Contain("Claim amount is over €10,000.");
+        var note = claim.AddNote("  Customer confirmed remediation vendor appointment.  ", "adjuster-2", createdAtUtc);
+
+        Assert.Equal(claim.Id, note.ClaimId);
+        Assert.Equal("Customer confirmed remediation vendor appointment.", note.Content);
+        Assert.Equal("adjuster-2", note.CreatedByUserId);
+        Assert.Equal(createdAtUtc, note.CreatedAtUtc);
     }
 
     [Fact]
-    public void CanForceReassign_ShouldBeDisallowed_WhenNoConditionIsMet()
+    public void Create_initializes_workflow_status_defaults()
     {
-        // Arrange
-        var claim = Claim.Create("C-1", "Test", "t@t.com", "123", "P-1", _now.AddDays(-10), "Theft", "desc", "user1", "adj1", 9999, _now.AddDays(-10));
-        var blockedClaim = claim.With(claim.AdjusterId, claim.Status);
-        typeof(Claim).GetProperty(nameof(Claim.BlockedSince))!.SetValue(blockedClaim, _now.AddHours(-47));
+        var claim = Claim.Create(
+            "CLM-0103",
+            "Jordan Avery",
+            "jordan.avery@example.com",
+            "555-0100",
+            "POL-0103",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Water damage",
+            "Pipe burst in lower level.",
+            "adjuster-1",
+            new DateTime(2026, 5, 11, 8, 30, 0, DateTimeKind.Utc));
 
-        // Act
-        var (allowed, reasons) = blockedClaim.CanForceReassign(_now);
-
-        // Assert
-        allowed.Should().BeFalse();
-        reasons.Should().BeEmpty();
+        Assert.Equal("adjuster-1", claim.OwnedByUserId);
+        Assert.Equal("Initial review", claim.NextExpectedAction);
+        Assert.False(claim.HasDataIntegrityWarning);
+        Assert.Null(claim.BlockerType);
+        Assert.Null(claim.BlockerReason);
+        Assert.Null(claim.DataIntegrityWarningMessage);
     }
 
     [Fact]
-    public void GetNextStatus_ShouldThrowException_WhenStatusIsClosed()
+    public void Claim_can_add_document_metadata_with_safe_storage_reference()
     {
-        // Arrange
-        var claim = Claim.Create("C-1", "Test", "t@t.com", "123", "P-1", _now.AddDays(-10), "Theft", "desc", "user1", "adj1", 1000, _now.AddDays(-10));
-        var closedClaim = claim.With(claim.AdjusterId, Enums.ClaimStatus.Closed);
+        var claim = Claim.Create(
+            "CLM-0102",
+            "Jordan Avery",
+            "jordan.avery@example.com",
+            "555-0100",
+            "POL-0102",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Water damage",
+            "Pipe burst in lower level.",
+            "adjuster-1",
+            new DateTime(2026, 5, 11, 8, 30, 0, DateTimeKind.Utc));
 
-        // Act
-        Action act = () => closedClaim.GetNextStatus();
+        var uploadedAtUtc = new DateTime(2026, 5, 12, 10, 15, 0, DateTimeKind.Utc);
 
-        // Assert
-        act.Should().Throw<InvalidOperationException>().WithMessage("No upper state possible for a closed claim.");
+        var document = claim.AddDocument(" estimate.pdf ", ".pdf", "stored/claim-0102/abc123.bin", "adjuster-2", uploadedAtUtc);
+
+        Assert.Equal(claim.Id, document.ClaimId);
+        Assert.Equal("estimate.pdf", document.FileName);
+        Assert.Equal(".pdf", document.FileType);
+        Assert.Equal("stored/claim-0102/abc123.bin", document.StorageIdentifier);
+        Assert.Equal("adjuster-2", document.UploadedByUserId);
+        Assert.Equal(uploadedAtUtc, document.UploadedAtUtc);
     }
 }

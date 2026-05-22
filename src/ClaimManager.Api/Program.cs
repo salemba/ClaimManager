@@ -15,10 +15,6 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ClaimManager.Application.Services;
-using ClaimManager.Application.Interfaces;
-using ClaimManager.Infrastructure.Repositories;
-using ClaimManager.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,11 +45,6 @@ builder.Services.AddSingleton<IPaymentSystemClient>(sp =>
     new LocalPaymentSystemClient(sp.GetRequiredService<ILoggerFactory>().CreateLogger<LocalPaymentSystemClient>()));
 builder.Services.AddSingleton<IMessagingClient>(sp =>
     new LocalMessagingClient(sp.GetRequiredService<ILoggerFactory>().CreateLogger<LocalMessagingClient>()));
-
-builder.Services.AddScoped<IClaimRepository, LocalClaimRepository>();
-builder.Services.AddScoped<IAuditRepository, LocalAuditRepository>();
-builder.Services.AddScoped<INotificationService, LocalNotificationService>();
-builder.Services.AddScoped<ClaimService>();
 
 builder.AddNpgsqlDbContext<ClaimManagerDbContext>(
     connectionName: "postgresdb",
