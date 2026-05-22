@@ -1,4 +1,3 @@
-namespace ClaimManager.Infrastructure.Persistence;
 
 using ClaimManager.Domain.Audit;
 using ClaimManager.Domain.Claims;
@@ -8,8 +7,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
+namespace ClaimManager.Infrastructure.Persistence;
 public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext> options)
-    : IdentityDbContext<ClaimManagerUser, ClaimManagerRole, Guid>(options)
+    : IdentityDbContext<ClaimManagerUser, ClaimManagerRole, Guid>(options), IClaimManagerDbContext
 {
     public DbSet<Claim> Claims => Set<Claim>();
 
@@ -366,4 +366,8 @@ public sealed class ClaimManagerDbContext(DbContextOptions<ClaimManagerDbContext
         builder.Entity<IdentityUserRole<Guid>>().HasData(ClaimManagerSeedData.UserRoles);
         builder.Entity<Claim>().HasData(ClaimManagerSeedData.Claims);
     }
+}
+
+internal interface IClaimManagerDbContext
+{
 }
