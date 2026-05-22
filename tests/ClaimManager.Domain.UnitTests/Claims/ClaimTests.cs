@@ -137,4 +137,100 @@ public sealed class ClaimTests
         Assert.Equal("adjuster-2", document.UploadedByUserId);
         Assert.Equal(uploadedAtUtc, document.UploadedAtUtc);
     }
+
+    [Fact]
+    public void Supervisor_intervention_is_allowed_if_claim_is_older_than_48_hours()
+    {
+        var now = DateTime.UtcNow;
+        var createdAtUtc = now.AddHours(-49);
+
+        var claim = Claim.Create(
+            "CLM-0001", "Claimant", "email@test.com", "123", "POL-001",
+            now.AddDays(-5), "Type", "Desc", "adjuster-1", createdAtUtc);
+
+        var result = claim.CanIntervene(now);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Supervisor_intervention_is_allowed_if_claim_amount_is_high()
+    {
+        var now = DateTime.UtcNow;
+        var createdAtUtc = now.AddHours(-10);
+
+        var claim = Claim.Create(
+            "CLM-0001", "Claimant", "email@test.com", "123", "POL-001",
+            now.AddDays(-5), "Type", "Desc", "adjuster-1", createdAtUtc);
+        
+        claim.PaymentAmount = 10001m;
+
+        var result = claim.CanIntervene(now);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Supervisor_intervention_is_denied_if_thresholds_not_met()
+    {
+        var now = DateTime.UtcNow;
+        var createdAtUtc = now.AddHours(-10);
+
+        var claim = Claim.Create(
+            "CLM-0001", "Claimant", "email@test.com", "123", "POL-001",
+            now.AddDays(-5), "Type", "Desc", "adjuster-1", createdAtUtc);
+        
+        claim.PaymentAmount = 5000m;
+
+        var result = claim.CanIntervene(now);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Intervene_applies_changes_and_adds_note()
+    {
+        var now = DateTime.UtcNow;
+        var createdAtUtc = now.AddHours(-49);
+
+        var claim = Claim.Create(
+            "CLM-0001", "Claimant", "email@test.com", "123", "POL-001",
+            now.AddDays(-5), "Type", "Desc", "adjuster-1", createdAtUtc);
+
+        claim.Intervene("new-adjuster", Claim.StatusSuspended, "Urgent override", "supervisor-1", now);
+
+        Assert.Equal("new-adjuster", claim.OwnedByUserId);
+        Assert.Equal(Claim.StatusSuspended, claim.Status);
+        Assert.Contains(claim.Notes, n => n.Content.Contains("Supervisor intervention") && n.Content.Contains("Urgent override"));
+    }
+
+    [Fact]
+    public void Intervene_throws_if_thresholds_not_met()
+    {
+        var now = DateTime.UtcNow;
+        var createdAtUtc = now.AddHours(-10);
+
+        var claim = Claim.Create(
+            "CLM-0001", "Claimant", "email@test.com", "123", "POL-001",
+            now.AddDays(-5), "Type", "Desc", "adjuster-1", createdAtUtc);
+        
+        claim.PaymentAmount = 5000m;
+
+        Assert.Throws<InvalidOperationException>(() => 
+            claim.Intervene("new-adjuster", Claim.StatusSuspended, "Urgent override", "supervisor-1", now));
+    }
+
+    [Fact]
+    public void Intervene_throws_if_reason_is_missing()
+    {
+        var now = DateTime.UtcNow;
+        var createdAtUtc = now.AddHours(-49);
+
+        var claim = Claim.Create(
+            "CLM-0001", "Claimant", "email@test.com", "123", "POL-001",
+            now.AddDays(-5), "Type", "Desc", "adjuster-1", createdAtUtc);
+
+        Assert.Throws<ArgumentException>(() => 
+            claim.Intervene("new-adjuster", Claim.StatusSuspended, "", "supervisor-1", now));
+    }
 }

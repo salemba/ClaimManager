@@ -24,7 +24,7 @@ public static class WorkspaceEndpoints
             .RequireAuthorization(ClaimManagerPolicies.Adjuster);
 
         group.MapGet("/workspace/integration-health", GetIntegrationHealthAsync)
-            .RequireAuthorization(ClaimManagerPolicies.Adjuster);
+            .RequireAuthorization(ClaimManagerPolicies.Adjuster, ClaimManagerPolicies.Supervisor);
 
         group.MapGet("/admin/audit", GetAdminAuditAsync)
             .RequireAuthorization(ClaimManagerPolicies.Admin);

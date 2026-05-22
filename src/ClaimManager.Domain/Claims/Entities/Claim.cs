@@ -13,6 +13,8 @@ public sealed record ClaimReconciliationDetails(
 
 public sealed class Claim
 {
+    public const string StatusSuspended = "suspended";
+
     private static readonly Dictionary<string, (string NextState, string? NextExpectedAction)> _advanceTransitions = new()
     {
         ["new"] = ("open", "Investigate loss details"),
@@ -109,6 +111,39 @@ public sealed class Claim
             actions.Add("route-for-approval");
         }
         return actions;
+    }
+
+    public bool CanIntervene(DateTime now)
+    {
+        var age = now - CreatedAtUtc;
+        return age.TotalHours > 48 || (PaymentAmount ?? 0) > 10000;
+    }
+
+    public void Intervene(string? newAdjusterId, string? newState, string reason, string supervisorId, DateTime now)
+    {
+        if (!CanIntervene(now))
+        {
+            throw new InvalidOperationException("Claim does not meet intervention thresholds (Age > 48h or Amount > 10,000).");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A reason must be provided for supervisor intervention.", nameof(reason));
+        }
+
+        if (!string.IsNullOrWhiteSpace(newAdjusterId))
+        {
+            OwnedByUserId = newAdjusterId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(newState))
+        {
+            Status = newState;
+        }
+
+        AddNote($"Supervisor intervention by {supervisorId}. Reason: {reason}", supervisorId, now);
+        UpdatedAtUtc = now;
+        UpdatedByUserId = supervisorId;
     }
 
     public static Claim Create(

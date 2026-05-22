@@ -56,6 +56,8 @@ public static class ClaimsController
         group.MapPost("/{id:guid}/reconcile", ReconcileClaimStateAsync);
         group.MapPost("/{id:guid}/notifications", SendClaimNotificationAsync);
         group.MapPost("/{id:guid}/notifications/{notificationId:guid}/retry", RetryClaimNotificationAsync);
+        group.MapPost("/{id:guid}/intervene", InterveneClaimAsync)
+            .RequireAuthorization(ClaimManagerPolicies.Supervisor);
 
         return endpoints;
     }
@@ -737,6 +739,70 @@ public static class ClaimsController
         }
 
         return TypedResults.Ok(await BuildClaimDtoAsync(dbContext, claim, cancellationToken));
+    }
+
+    private static async Task<Results<Ok<ClaimDto>, ValidationProblem, ProblemHttpResult>> InterveneClaimAsync(
+        Guid id,
+        InterveneClaimCommand command,
+        ClaimsPrincipal principal,
+        UserManager<ClaimManagerUser> userManager,
+        ClaimManagerDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        command = command with { Id = id };
+
+        var validator = new InterveneClaimCommandValidator();
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            return TypedResults.ValidationProblem(ToValidationDictionary(validationResult));
+        }
+
+        var user = await userManager.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "The current request does not have a valid authenticated user.");
+        }
+
+        var claim = await dbContext.Claims.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (claim is null)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "Claim not found", detail: "The requested claim could not be found.");
+        }
+
+        dbContext.Entry(claim).Property(c => c.RowVersion).OriginalValue = command.RowVersion;
+
+        var now = DateTime.UtcNow;
+        try
+        {
+            claim.Intervene(command.NewAdjusterId, command.NewState, command.Reason, user.Id.ToString(), now);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Intervention not allowed", detail: ex.Message);
+        }
+
+        dbContext.ClaimAudits.Add(new RecordClaimAuditCommand(
+            claim.Id,
+            "intervened",
+            $"Supervisor intervention: {command.Reason}. New Adjuster: {command.NewAdjusterId ?? "no change"}, New State: {command.NewState ?? "no change"}",
+            user.Id.ToString(),
+            now).ToEntity());
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Concurrency conflict",
+                detail: "The claim has been modified by another user. Please reload the claim and try again.");
+        }
+
+        var updatedClaimDto = await BuildClaimDtoAsync(dbContext, claim, cancellationToken);
+        return TypedResults.Ok(updatedClaimDto);
     }
 
     private static async Task<Results<Ok<ClaimDto>, ValidationProblem, ProblemHttpResult>> RouteClaimForApprovalAsync(

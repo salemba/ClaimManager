@@ -104,7 +104,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(ClaimManagerPolicies.Adjuster, policy =>
-        policy.RequireRole(ClaimManagerRoles.Adjuster, ClaimManagerRoles.Admin));
+        policy.RequireRole(ClaimManagerRoles.Adjuster, ClaimManagerRoles.Supervisor, ClaimManagerRoles.Admin));
     options.AddPolicy(ClaimManagerPolicies.Supervisor, policy =>
         policy.RequireRole(ClaimManagerRoles.Supervisor, ClaimManagerRoles.Admin));
     options.AddPolicy(ClaimManagerPolicies.Governance, policy =>

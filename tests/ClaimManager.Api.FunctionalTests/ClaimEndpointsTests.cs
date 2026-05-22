@@ -9,6 +9,7 @@ using ClaimManager.Api.Endpoints.Auth;
 using ClaimManager.Infrastructure.Integrations.DocumentRepository;
 using ClaimManager.Infrastructure.Integrations.PaymentSystem;
 using ClaimManager.Infrastructure.Integrations.PolicySystem;
+using ClaimEntity = ClaimManager.Domain.Claims.Claim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -819,6 +820,96 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
     }
 
     [Fact]
+    public async Task Supervisor_can_intervene_on_aging_claim()
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        // Use the seeded aging claim (Id = ffffffff-ffff-ffff-ffff-ffffffffffff)
+        var agingClaimId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
+        await LoginAsSupervisorAsync(client);
+
+        var detailsResponse = await client.GetAsync($"/api/claims/{agingClaimId}");
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        var agingClaim = await detailsResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        var interveneResponse = await client.PostAsJsonAsync($"/api/claims/{agingClaimId}/intervene", new InterveneClaimCommand(
+            agingClaimId,
+            "new-adjuster-id",
+            ClaimEntity.StatusSuspended,
+            "Manually moving stuck aging claim to suspended for review.",
+            agingClaim!.RowVersion));
+
+        Assert.Equal(HttpStatusCode.OK, interveneResponse.StatusCode);
+
+        var updatedClaim = await interveneResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.NotNull(updatedClaim);
+        Assert.Equal("new-adjuster-id", updatedClaim!.OwnedByUserId);
+        Assert.Equal(ClaimEntity.StatusSuspended, updatedClaim.Status);
+        Assert.Contains(updatedClaim.AuditHistory, entry => entry.Action == "intervened");
+    }
+
+    [Fact]
+    public async Task Supervisor_can_intervene_on_high_value_claim()
+    {
+        using var customFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IPaymentSystemClient>();
+                services.AddSingleton<IPaymentSystemClient>(new HighValuePaymentSystemClient());
+            }));
+
+        using var client = customFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        await LoginAsAdminAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/claims", new CreateClaimCommand(
+            "Morgan Lee",
+            "morgan.lee@example.com",
+            "555-0135",
+            "POL-0200",
+            new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+            "Collision",
+            "Rear-end collision during evening commute."));
+        
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var createdClaim = await createResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        await LoginAsSupervisorAsync(client);
+
+        var interveneResponse = await client.PostAsJsonAsync($"/api/claims/{createdClaim!.Id}/intervene", new InterveneClaimCommand(
+            createdClaim.Id,
+            "new-adjuster",
+            ClaimEntity.StatusSuspended,
+            "Urgent override for high value claim",
+            createdClaim.RowVersion));
+
+        Assert.Equal(HttpStatusCode.OK, interveneResponse.StatusCode);
+
+        var updatedClaim = await interveneResponse.Content.ReadFromJsonAsync<ClaimDto>();
+
+        Assert.NotNull(updatedClaim);
+        Assert.Equal("new-adjuster", updatedClaim!.OwnedByUserId);
+        Assert.Equal(ClaimEntity.StatusSuspended, updatedClaim.Status);
+        Assert.Contains(updatedClaim.AuditHistory, entry => entry.Action == "intervened");
+    }
+
+    private sealed class HighValuePaymentSystemClient : IPaymentSystemClient
+    {
+        public Task<PaymentRecord?> GetPaymentStatusByClaimAsync(string claimNumber, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<PaymentRecord?>(new PaymentRecord(claimNumber, "REF-123", 15000m, "USD", "Paid", DateTimeOffset.UtcNow));
+        }
+    }
+
+    [Fact]
     public async Task Reconciliation_leaves_visible_unresolved_warning_when_a_dependency_still_fails()
     {
         using var customFactory = factory.WithWebHostBuilder(builder =>
@@ -870,6 +961,30 @@ public sealed class ClaimEndpointsTests(ClaimManagerApiFactory factory)
     private static async Task LoginAsync(HttpClient client)
     {
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new AuthEndpoints.LoginRequest("adjuster@claimmanager.local", "Adjuster!2345"));
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        var csrfToken = GetCookieValue(loginResponse, "claimmanager.csrf");
+        Assert.False(string.IsNullOrWhiteSpace(csrfToken));
+
+        client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
+        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrfToken);
+    }
+
+    private static async Task LoginAsSupervisorAsync(HttpClient client)
+    {
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new AuthEndpoints.LoginRequest("supervisor@claimmanager.local", "Supervisor!2345"));
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        var csrfToken = GetCookieValue(loginResponse, "claimmanager.csrf");
+        Assert.False(string.IsNullOrWhiteSpace(csrfToken));
+
+        client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
+        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrfToken);
+    }
+
+    private static async Task LoginAsAdminAsync(HttpClient client)
+    {
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new AuthEndpoints.LoginRequest("admin@claimmanager.local", "Admin!234567"));
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
         var csrfToken = GetCookieValue(loginResponse, "claimmanager.csrf");
