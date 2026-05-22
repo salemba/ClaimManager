@@ -163,4 +163,38 @@ public sealed class SupervisorDashboardEndpointTests(ClaimManagerApiFactory fact
         Assert.All(payload!.HighRiskClaims, claim =>
             Assert.True(claim.HasDataIntegrityWarning || !string.IsNullOrWhiteSpace(claim.BlockerType)));
     }
+
+    [Fact]
+    public async Task Dashboard_workload_and_blocker_summaries_have_consistent_data()
+    {
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/login", new AuthEndpoints.LoginRequest("supervisor@claimmanager.local", "Supervisor!2345"));
+
+        var response = await client.GetAsync("/api/supervisor-dashboard");
+        var payload = await response.Content.ReadFromJsonAsync<SupervisorDashboardDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(payload);
+
+        Assert.All(payload.WorkloadDistribution, w =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(w.OwnerId));
+            Assert.True(w.TotalCount >= w.StuckCount);
+            Assert.True(w.TotalCount >= w.AgingCount);
+            Assert.True(w.StuckCount >= 0);
+            Assert.True(w.AgingCount >= 0);
+            Assert.True(w.BlockerCount >= 0);
+        });
+
+        if (payload.BlockerSummary.Any())
+        {
+            Assert.All(payload.BlockerSummary, b =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(b.BlockerType));
+                Assert.True(b.Count > 0);
+                Assert.True(b.AffectedOwnerCount >= 0);
+                Assert.True(b.AgingClaimCount >= 0);
+            });
+        }
+    }
 }

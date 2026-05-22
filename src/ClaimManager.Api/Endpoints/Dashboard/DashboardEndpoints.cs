@@ -100,7 +100,7 @@ public static class DashboardEndpoints
                 g.Count(),
                 g.Count(c => c.BlockerType is not null),
                 g.Count(c => c.CreatedAtUtc < agingCutoff),
-                g.Count(c => c.BlockerType is not null)))
+                g.Select(c => c.BlockerType).Where(bt => bt is not null).Distinct().Count()))
             .OrderByDescending(o => o.StuckCount + o.AgingCount)
             .ThenByDescending(o => o.TotalCount)
             .ThenBy(o => o.OwnerId)
