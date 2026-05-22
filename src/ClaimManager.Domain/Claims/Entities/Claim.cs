@@ -590,4 +590,36 @@ public sealed class Claim
             ? value
             : DateTime.SpecifyKind(value, DateTimeKind.Utc);
     }
+
+    public int DaysSinceCreated(DateTimeOffset utcNow) => (utcNow - CreatedAtUtc).Days;
+
+    public bool IsStuck(DateTimeOffset utcNow)
+    {
+        if (Status is "closed" or "paid")
+        {
+            return false;
+        }
+
+        return (utcNow - (UpdatedAtUtc ?? CreatedAtUtc)).TotalDays > 7;
+    }
+
+    public bool IsAging(DateTimeOffset utcNow)
+    {
+        if (Status is "closed" or "paid")
+        {
+            return false;
+        }
+
+        return DaysSinceCreated(utcNow) > 30;
+    }
+
+    public bool RequiresAttention()
+    {
+        return !string.IsNullOrEmpty(BlockerType) || HasDataIntegrityWarning;
+    }
+
+    public bool IsPendingApproval()
+    {
+        return Status is "pending-approval" or "pending";
+    }
 }
